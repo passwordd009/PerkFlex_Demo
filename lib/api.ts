@@ -61,6 +61,11 @@ export const pointsApi = {
     }),
 }
 
+// Account
+export const accountApi = {
+  delete: () => apiFetch<{ success: boolean }>('/account', { method: 'DELETE' }),
+}
+
 // Rewards
 export const rewardsApi = {
   list: (businessId?: string) =>
