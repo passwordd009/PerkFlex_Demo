@@ -6,7 +6,7 @@ const API_BASE = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:30
 async function getAuthHeader(): Promise<Record<string, string>> {
   const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.access_token) return {}
+  if (!session?.access_token) throw new Error('Not authenticated')
   return { Authorization: `Bearer ${session.access_token}` }
 }
 
@@ -59,6 +59,11 @@ export const pointsApi = {
       method: 'POST',
       body: JSON.stringify({ rewardId, orderId }),
     }),
+}
+
+// Account
+export const accountApi = {
+  delete: () => apiFetch<{ success: boolean }>('/account', { method: 'DELETE' }),
 }
 
 // Rewards
