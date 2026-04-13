@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
@@ -10,23 +9,32 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Eye, EyeOff } from 'lucide-react'
 
-export default function LoginPage() {
+export default function ResetPasswordPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (password.length < 8) {
+      toast.error('Password must be at least 8 characters')
+      return
+    }
+    if (password !== confirm) {
+      toast.error('Passwords do not match')
+      return
+    }
     setLoading(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.updateUser({ password })
     if (error) {
       toast.error(error.message)
       setLoading(false)
       return
     }
+    toast.success('Password updated! Signing you in…')
     router.push('/')
     router.refresh()
   }
@@ -38,42 +46,25 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-sm"
       >
-        {/* Logo */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary mb-4">
             <span className="text-white text-2xl font-black">P</span>
           </div>
-          <h1 className="text-2xl font-black text-foreground">PerkFlex</h1>
-          <p className="text-gray-500 text-sm mt-1">Local rewards, reimagined</p>
+          <h1 className="text-2xl font-black text-foreground">New Password</h1>
+          <p className="text-gray-500 text-sm mt-1">Choose a strong password</p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-foreground mb-1.5 block">Email</label>
-            <Input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-              autoComplete="email"
-            />
-          </div>
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-sm font-medium text-foreground">Password</label>
-              <Link href="/forgot-password" className="text-xs text-primary font-medium">
-                Forgot password?
-              </Link>
-            </div>
+            <label className="text-sm font-medium text-foreground mb-1.5 block">New Password</label>
             <div className="relative">
               <Input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Min 8 characters"
                 required
-                autoComplete="current-password"
+                autoComplete="new-password"
                 className="pr-10"
               />
               <button
@@ -86,18 +77,25 @@ export default function LoginPage() {
               </button>
             </div>
           </div>
+          <div>
+            <label className="text-sm font-medium text-foreground mb-1.5 block">Confirm Password</label>
+            <div className="relative">
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                value={confirm}
+                onChange={e => setConfirm(e.target.value)}
+                placeholder="Repeat password"
+                required
+                autoComplete="new-password"
+                className="pr-10"
+              />
+            </div>
+          </div>
 
           <Button type="submit" className="w-full" size="lg" disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign In'}
+            {loading ? 'Updating…' : 'Set New Password'}
           </Button>
         </form>
-
-        <p className="text-center text-sm text-gray-500 mt-6">
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-primary font-semibold">
-            Sign up
-          </Link>
-        </p>
       </motion.div>
     </div>
   )
