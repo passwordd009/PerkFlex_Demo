@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
+import { createProfile } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -30,7 +31,7 @@ export default function SignupPage() {
     }
     setLoading(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -42,9 +43,11 @@ export default function SignupPage() {
       setLoading(false)
       return
     }
+    if (data.user) {
+      await createProfile(data.user.id, role)
+    }
     toast.success('Account created! You can now sign in.')
     router.push('/')
-    router.refresh()
   }
 
   return (

@@ -47,9 +47,8 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user && isAuthRoute) {
-    // Redirect to appropriate dashboard based on role
-    // Role is determined after login; default to customer discover
-    url.pathname = '/discover'
+    // Let the home page determine the correct destination based on role
+    url.pathname = '/'
     return NextResponse.redirect(url)
   }
 
