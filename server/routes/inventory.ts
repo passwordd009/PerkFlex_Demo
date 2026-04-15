@@ -39,7 +39,7 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
       return
     }
     if (!business) {
-      res.status(403).json({ message: 'No business found for this account' })
+      res.status(403).json({ message: 'No business found for this account', debug_owner_id: userId })
       return
     }
 
