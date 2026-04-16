@@ -143,6 +143,34 @@ export interface Cart {
   appliedRewardId: string | null
 }
 
+// ─── Inventory ───────────────────────────────────────────────────────────────
+
+export interface InventoryItem {
+  id: string
+  name: string
+  price: number
+  quantity: number
+  category: string
+  business_id: string
+  created_at: string
+}
+
+export interface InventoryUploadItem {
+  name: string
+  price: number
+  quantity: number
+  category: string
+}
+
+export interface InventoryUploadResponse {
+  success_count: number
+  error_count: number
+  errors: Array<{ row: number; message: string }>
+}
+
+export type RequiredField = 'name' | 'price' | 'quantity' | 'category'
+export type ColumnMapping = Record<RequiredField, string | null>
+
 // ─── API responses ───────────────────────────────────────────────────────────
 
 export interface CreateOrderRequest {
