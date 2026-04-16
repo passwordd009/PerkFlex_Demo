@@ -32,10 +32,14 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
       .from('businesses')
       .select('id')
       .eq('owner_id', userId)
-      .single()
+      .maybeSingle()
 
-    if (bizError || !business) {
-      res.status(403).json({ message: 'No business found for this account' })
+    if (bizError) {
+      res.status(500).json({ message: `Database error: ${bizError.message}` })
+      return
+    }
+    if (!business) {
+      res.status(403).json({ message: 'No business found for this account', debug_owner_id: userId })
       return
     }
 
