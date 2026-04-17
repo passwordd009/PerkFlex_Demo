@@ -39,20 +39,31 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
       return
     }
     if (!business) {
-      res.status(403).json({ message: 'No business found for this account', debug_owner_id: userId })
+      res.status(403).json({ message: 'No business found for this account' })
       return
     }
 
     const businessId = business.id
 
+    // Build a name→id map for menu items belonging to this business (single query, no N+1)
+    const { data: menuItems } = await supabase
+      .from('menu_items')
+      .select('id, name')
+      .eq('business_id', businessId)
+
+    const menuItemMap = new Map(
+      (menuItems ?? []).map((m: { id: string; name: string }) => [m.name.toLowerCase().trim(), m.id])
+    )
+
     // Re-validate every item server-side
-    const validItems: Array<{ name: string; price: number; quantity: number; category: string; business_id: string }> = []
+    const validItems: Array<{ name: string; price: number; quantity: number; category: string; business_id: string; menu_item_id: string | null }> = []
     const errors: Array<{ row: number; message: string }> = []
 
     for (let i = 0; i < items.length; i++) {
       const parsed = InventoryItemSchema.safeParse(items[i])
       if (parsed.success) {
-        validItems.push({ ...parsed.data, business_id: businessId })
+        const menu_item_id = menuItemMap.get(parsed.data.name.toLowerCase().trim()) ?? null
+        validItems.push({ ...parsed.data, business_id: businessId, menu_item_id })
       } else {
         const message = parsed.error.issues.map((e: { message: string }) => e.message).join('; ')
         errors.push({ row: i + 1, message })
