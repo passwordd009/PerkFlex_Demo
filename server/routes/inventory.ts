@@ -16,6 +16,32 @@ const InventoryItemSchema = z.object({
   category: z.string().min(1, 'Category is required'),
 })
 
+// GET /inventory — list inventory items for authenticated business
+router.get('/', async (req: AuthenticatedRequest, res) => {
+  const userId = req.userId!
+  try {
+    const { data: business, error: bizError } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('owner_id', userId)
+      .maybeSingle()
+
+    if (bizError) { res.status(500).json({ message: bizError.message }); return }
+    if (!business) { res.status(403).json({ message: 'No business found for this account' }); return }
+
+    const { data, error } = await supabase
+      .from('inventory')
+      .select('*')
+      .eq('business_id', business.id)
+      .order('name')
+
+    if (error) { res.status(500).json({ message: error.message }); return }
+    res.json(data ?? [])
+  } catch (e: any) {
+    res.status(500).json({ message: e.message || 'Internal server error' })
+  }
+})
+
 // POST /inventory/upload — bulk insert inventory items from CSV
 router.post('/upload', async (req: AuthenticatedRequest, res) => {
   const userId = req.userId!
@@ -45,14 +71,25 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
 
     const businessId = business.id
 
+    // Build a name→id map for menu items belonging to this business (single query, no N+1)
+    const { data: menuItems } = await supabase
+      .from('menu_items')
+      .select('id, name')
+      .eq('business_id', businessId)
+
+    const menuItemMap = new Map(
+      (menuItems ?? []).map((m: { id: string; name: string }) => [m.name.toLowerCase().trim(), m.id])
+    )
+
     // Re-validate every item server-side
-    const validItems: Array<{ name: string; price: number; quantity: number; category: string; business_id: string }> = []
+    const validItems: Array<{ name: string; price: number; quantity: number; category: string; business_id: string; menu_item_id: string | null }> = []
     const errors: Array<{ row: number; message: string }> = []
 
     for (let i = 0; i < items.length; i++) {
       const parsed = InventoryItemSchema.safeParse(items[i])
       if (parsed.success) {
-        validItems.push({ ...parsed.data, business_id: businessId })
+        const menu_item_id = menuItemMap.get(parsed.data.name.toLowerCase().trim()) ?? null
+        validItems.push({ ...parsed.data, business_id: businessId, menu_item_id })
       } else {
         const message = parsed.error.issues.map((e: { message: string }) => e.message).join('; ')
         errors.push({ row: i + 1, message })

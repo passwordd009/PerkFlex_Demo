@@ -8,6 +8,7 @@ import pointsRouter from './routes/points'
 import rewardsRouter from './routes/rewards'
 import accountRouter from './routes/account'
 import inventoryRouter from './routes/inventory'
+import discountsRouter from './routes/discounts'
 import { authMiddleware } from './middleware/auth'
 
 const app = express()
@@ -27,6 +28,7 @@ app.use('/points', pointsRouter)
 app.use('/rewards', rewardsRouter)
 app.use('/account', accountRouter)
 app.use('/inventory', inventoryRouter)
+app.use('/discounts', discountsRouter)
 
 app.listen(PORT, () => {
   console.log(`PerkFlex API running on http://localhost:${PORT}`)
