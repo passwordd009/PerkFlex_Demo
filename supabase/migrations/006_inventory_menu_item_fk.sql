@@ -1,0 +1,2 @@
+ALTER TABLE inventory
+  ADD COLUMN IF NOT EXISTS menu_item_id UUID REFERENCES menu_items(id) ON DELETE SET NULL;

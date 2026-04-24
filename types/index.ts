@@ -154,6 +154,7 @@ export interface InventoryItem {
   quantity: number
   category: string
   business_id: string
+  menu_item_id: string | null
   created_at: string
 }
 
@@ -172,6 +173,31 @@ export interface InventoryUploadResponse {
 
 export type RequiredField = 'name' | 'price' | 'quantity' | 'category'
 export type ColumnMapping = Record<RequiredField, string | null>
+
+// ─── Discounts ────────────────────────────────────────────────────────────────
+
+export interface Discount {
+  id: string
+  business_id: string
+  title: string
+  description: string | null
+  image_url: string | null
+  discount_percentage: number
+  item_ids: string[]
+  created_at: string
+}
+
+export interface CreateDiscountRequest {
+  title: string
+  description?: string
+  image_url?: string
+  discount_percentage: number
+  item_ids: string[]
+}
+
+export interface CreateDiscountResponse {
+  id: string
+}
 
 // ─── API responses ───────────────────────────────────────────────────────────
 

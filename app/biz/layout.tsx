@@ -1,11 +1,12 @@
 import Link from 'next/link'
-import { LayoutDashboard, ScanLine, ClipboardList, UtensilsCrossed, Package } from 'lucide-react'
+import { LayoutDashboard, ScanLine, ClipboardList, UtensilsCrossed, Package, Tag } from 'lucide-react'
 
 const nav = [
   { href: '/biz/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/biz/orders', label: 'Orders', icon: ClipboardList },
   { href: '/biz/menu', label: 'Menu', icon: UtensilsCrossed },
   { href: '/biz/inventory', label: 'Inventory', icon: Package },
+  { href: '/biz/discounts', label: 'Discounts', icon: Tag },
   { href: '/biz/scan', label: 'Scan QR', icon: ScanLine },
 ]
 
