@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { createClient } from '@/lib/supabase/client'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -20,6 +19,7 @@ interface FormValues {
   description: string
   price: number
   category: string
+  image_url: string
   points_value: number
 }
 
@@ -27,14 +27,29 @@ export function MenuItemForm({ businessId, item, onDone }: MenuItemFormProps) {
   const queryClient = useQueryClient()
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     defaultValues: item
-      ? { name: item.name, description: item.description ?? '', price: item.price, category: item.category ?? '', points_value: item.points_value }
-      : { points_value: 0 },
+      ? {
+          name: item.name,
+          description: item.description ?? '',
+          price: item.price,
+          category: item.category ?? '',
+          image_url: item.image_url ?? '',
+          points_value: item.points_value,
+        }
+      : { points_value: 0, image_url: '' },
   })
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (values: FormValues) => {
       const supabase = createClient()
-      const data = { ...values, business_id: businessId }
+      const data = {
+        name: values.name.trim(),
+        description: values.description.trim() || null,
+        price: values.price,
+        category: values.category.trim() || null,
+        image_url: values.image_url.trim() || null,
+        points_value: values.points_value,
+        business_id: businessId,
+      }
 
       if (item) {
         const { error } = await supabase.from('menu_items').update(data).eq('id', item.id)
@@ -45,7 +60,7 @@ export function MenuItemForm({ businessId, item, onDone }: MenuItemFormProps) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['menu', businessId] })
+      queryClient.invalidateQueries({ queryKey: ['business-menu'] })
       toast.success(item ? 'Item updated' : 'Item added to menu')
       onDone()
     },
@@ -66,6 +81,11 @@ export function MenuItemForm({ businessId, item, onDone }: MenuItemFormProps) {
       <div>
         <label className="text-sm font-medium text-foreground mb-1 block">Description</label>
         <Input {...register('description')} placeholder="Short description…" />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-foreground mb-1 block">Photo URL</label>
+        <Input {...register('image_url')} type="url" placeholder="https://…" />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
