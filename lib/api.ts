@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase/client'
-import type { CreateOrderRequest, CreateOrderResponse, VerifyQRResponse, InventoryUploadItem, InventoryUploadResponse } from '@/types'
+import type {
+  CreateOrderRequest, CreateOrderResponse, VerifyQRResponse,
+  InventoryUploadItem, InventoryUploadResponse, InventoryItem,
+  CreateDiscountRequest, CreateDiscountResponse, Discount,
+} from '@/types'
 
 const API_BASE = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:3001'
 
@@ -76,9 +80,20 @@ export const rewardsApi = {
 
 // Inventory
 export const inventoryApi = {
+  list: () => apiFetch<InventoryItem[]>('/inventory'),
   upload: (items: InventoryUploadItem[]) =>
     apiFetch<InventoryUploadResponse>('/inventory/upload', {
       method: 'POST',
       body: JSON.stringify({ items }),
     }),
+}
+
+// Discounts
+export const discountsApi = {
+  create: (data: CreateDiscountRequest) =>
+    apiFetch<CreateDiscountResponse>('/discounts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  list: () => apiFetch<Discount[]>('/discounts'),
 }

@@ -16,6 +16,32 @@ const InventoryItemSchema = z.object({
   category: z.string().min(1, 'Category is required'),
 })
 
+// GET /inventory — list inventory items for authenticated business
+router.get('/', async (req: AuthenticatedRequest, res) => {
+  const userId = req.userId!
+  try {
+    const { data: business, error: bizError } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('owner_id', userId)
+      .maybeSingle()
+
+    if (bizError) { res.status(500).json({ message: bizError.message }); return }
+    if (!business) { res.status(403).json({ message: 'No business found for this account' }); return }
+
+    const { data, error } = await supabase
+      .from('inventory')
+      .select('*')
+      .eq('business_id', business.id)
+      .order('name')
+
+    if (error) { res.status(500).json({ message: error.message }); return }
+    res.json(data ?? [])
+  } catch (e: any) {
+    res.status(500).json({ message: e.message || 'Internal server error' })
+  }
+})
+
 // POST /inventory/upload — bulk insert inventory items from CSV
 router.post('/upload', async (req: AuthenticatedRequest, res) => {
   const userId = req.userId!
