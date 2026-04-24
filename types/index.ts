@@ -51,6 +51,7 @@ export interface MenuItem {
   image_url: string | null
   is_available: boolean
   points_value: number
+  discount_pct: number | null
   created_at: string
 }
 
@@ -107,6 +108,7 @@ export type DiscountType = 'fixed' | 'percentage'
 export interface Reward {
   id: string
   business_id: string
+  menu_item_id: string | null
   name: string
   description: string | null
   points_cost: number

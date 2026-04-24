@@ -44,7 +44,13 @@ export default function SignupPage() {
       return
     }
     if (data.user) {
-      await createProfile(data.user.id, role)
+      try {
+        await createProfile(data.user.id, role)
+      } catch (profileError) {
+        toast.error(profileError instanceof Error ? profileError.message : 'Failed to save profile')
+        setLoading(false)
+        return
+      }
     }
     toast.success('Account created! You can now sign in.')
     router.push('/')

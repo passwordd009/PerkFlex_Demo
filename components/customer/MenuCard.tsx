@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { Plus, Minus, Star } from 'lucide-react'
+import { Plus, Minus, Star, Tag } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -15,9 +14,10 @@ interface MenuCardProps {
 }
 
 export function MenuCard({ item, business }: MenuCardProps) {
-  const { items, addItem, removeItem, updateQuantity } = useCartStore()
+  const { items, addItem, updateQuantity } = useCartStore()
   const cartItem = items.find(i => i.menuItem.id === item.id)
   const qty = cartItem?.quantity ?? 0
+  const discountedPrice = item.discount_pct ? item.price * (1 - item.discount_pct / 100) : null
 
   const handleAdd = () => {
     addItem(item, business.id, business.district_id)
@@ -45,16 +45,31 @@ export function MenuCard({ item, business }: MenuCardProps) {
             {item.description && (
               <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>
             )}
-            <div className="flex items-center gap-1 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               {item.points_value > 0 && (
                 <span className="flex items-center gap-0.5 text-[10px] text-amber-600 font-medium">
                   <Star className="h-3 w-3 fill-support text-support" />
                   +{item.points_value} pts
                 </span>
               )}
+              {item.discount_pct && (
+                <span className="flex items-center gap-0.5 text-[10px] text-secondary font-medium">
+                  <Tag className="h-3 w-3" />
+                  {item.discount_pct}% off w/ points
+                </span>
+              )}
             </div>
             <div className="flex items-center justify-between mt-2">
-              <span className="font-bold text-foreground">{formatCurrency(item.price)}</span>
+              <div className="flex items-center gap-1.5">
+                {discountedPrice ? (
+                  <>
+                    <span className="text-xs text-gray-400 line-through">{formatCurrency(item.price)}</span>
+                    <span className="font-bold text-secondary">{formatCurrency(discountedPrice)}</span>
+                  </>
+                ) : (
+                  <span className="font-bold text-foreground">{formatCurrency(item.price)}</span>
+                )}
+              </div>
 
               <AnimatePresence mode="wait">
                 {qty === 0 ? (
