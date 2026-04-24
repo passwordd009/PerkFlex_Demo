@@ -51,6 +51,7 @@ export interface MenuItem {
   image_url: string | null
   is_available: boolean
   points_value: number
+  discount_pct: number | null
   created_at: string
 }
 
