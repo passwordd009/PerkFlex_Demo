@@ -5,11 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
+import { createProfile } from './actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { User, Store } from 'lucide-react'
+import { User, Store, Eye, EyeOff } from 'lucide-react'
 
 type Role = 'customer' | 'business_owner'
 
@@ -19,6 +20,7 @@ export default function SignupPage() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -29,7 +31,7 @@ export default function SignupPage() {
     }
     setLoading(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -41,9 +43,17 @@ export default function SignupPage() {
       setLoading(false)
       return
     }
+    if (data.user) {
+      try {
+        await createProfile(data.user.id, role)
+      } catch (profileError) {
+        toast.error(profileError instanceof Error ? profileError.message : 'Failed to save profile')
+        setLoading(false)
+        return
+      }
+    }
     toast.success('Account created! You can now sign in.')
     router.push('/')
-    router.refresh()
   }
 
   return (
@@ -108,14 +118,25 @@ export default function SignupPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-foreground mb-1.5 block">Password</label>
-            <Input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Min 8 characters"
-              required
-              autoComplete="new-password"
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Min 8 characters"
+                required
+                autoComplete="new-password"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
 
           <Button type="submit" className="w-full" size="lg" disabled={loading}>

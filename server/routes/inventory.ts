@@ -105,7 +105,7 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
       return
     }
 
-    // Batch insert in chunks of 100
+    // Batch insert inventory in chunks of 100
     const CHUNK_SIZE = 100
     for (let start = 0; start < validItems.length; start += CHUNK_SIZE) {
       const chunk = validItems.slice(start, start + CHUNK_SIZE)
@@ -114,6 +114,22 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
         res.status(500).json({ message: `Insert failed: ${insertError.message}` })
         return
       }
+    }
+
+    // Sync to menu_items — upsert so re-uploads don't duplicate
+    const menuItemsData = validItems.map(item => ({
+      business_id: item.business_id,
+      name: item.name,
+      price: item.price,
+      category: item.category,
+      is_available: true,
+      points_value: 0,
+    }))
+    const { error: menuError } = await supabase
+      .from('menu_items')
+      .upsert(menuItemsData, { onConflict: 'business_id,name' })
+    if (menuError) {
+      console.error('Menu sync error:', menuError.message)
     }
 
     res.json({

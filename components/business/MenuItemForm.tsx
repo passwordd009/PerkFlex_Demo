@@ -60,7 +60,7 @@ export function MenuItemForm({ businessId, item, onDone }: MenuItemFormProps) {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['business-menu'] })
+      queryClient.invalidateQueries({ queryKey: ['biz-menu'] })
       toast.success(item ? 'Item updated' : 'Item added to menu')
       onDone()
     },

@@ -24,7 +24,9 @@ export default async function BusinessDashboardPage() {
     .from('businesses')
     .select('id, name')
     .eq('owner_id', user.id)
-    .single()
+    .maybeSingle()
+
+  if (!business) redirect('/biz/setup')
 
   // Get summary stats
   const today = new Date()
@@ -85,13 +87,6 @@ export default async function BusinessDashboardPage() {
         </Link>
       </div>
 
-      {!business && (
-        <div className="mt-8 bg-accent/10 rounded-2xl p-4 text-center">
-          <p className="text-sm text-gray-600 font-medium">
-            You haven&apos;t set up a business yet. Contact support to get started.
-          </p>
-        </div>
-      )}
     </div>
   )
 }
