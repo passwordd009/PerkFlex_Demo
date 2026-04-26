@@ -79,6 +79,10 @@ export const useCartStore = create<CartStore>()(
         return Math.max(0, get().total() - discount)
       },
     }),
-    { name: 'perkflex-cart' }
+    {
+      name: 'perkflex-cart-v2',
+      version: 1,
+      migrate: () => ({ items: [], businessId: null, districtId: null, appliedRewardId: null }),
+    }
   )
 )

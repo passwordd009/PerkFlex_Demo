@@ -139,7 +139,6 @@ export interface InventoryItem {
   quantity: number
   category: string
   business_id: string
-  menu_item_id: string | null
   image_url: string | null
   created_at: string
 }

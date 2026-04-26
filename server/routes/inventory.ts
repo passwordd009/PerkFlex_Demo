@@ -42,7 +42,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
   }
 })
 
-// POST /inventory/upload — bulk insert inventory items from CSV
+// POST /inventory/upload — bulk upsert inventory items from CSV
 router.post('/upload', async (req: AuthenticatedRequest, res) => {
   const userId = req.userId!
 
@@ -53,7 +53,6 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
   }
 
   try {
-    // Resolve business_id from authenticated user — never trust client
     const { data: business, error: bizError } = await supabase
       .from('businesses')
       .select('id')
@@ -71,7 +70,6 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
 
     const businessId = business.id
 
-    // Re-validate every item server-side
     const validItems: Array<{ name: string; price: number; quantity: number; category: string }> = []
     const errors: Array<{ row: number; message: string }> = []
 
@@ -86,64 +84,26 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
     }
 
     if (validItems.length === 0) {
-      res.status(422).json({
-        success_count: 0,
-        error_count: errors.length,
-        errors,
-      })
+      res.status(422).json({ success_count: 0, error_count: errors.length, errors })
       return
     }
 
-    // Upsert menu_items FIRST — so they exist before inventory rows reference them
-    const menuItemsData = validItems.map(item => ({
-      business_id: businessId,
-      name: item.name,
-      price: item.price,
-      category: item.category,
-      is_available: true,
-      points_value: 0,
-    }))
-    const { error: menuError } = await supabase
-      .from('menu_items')
-      .upsert(menuItemsData, { onConflict: 'business_id,name' })
-    if (menuError) {
-      console.error('Menu sync error:', menuError.message)
-    }
-
-    // Fetch updated name→id map (includes newly created rows)
-    const { data: menuItemRows } = await supabase
-      .from('menu_items')
-      .select('id, name')
-      .eq('business_id', businessId)
-
-    const menuItemMap = new Map(
-      (menuItemRows ?? []).map((m: { id: string; name: string }) => [m.name.toLowerCase().trim(), m.id])
-    )
-
-    // Batch insert inventory with correct menu_item_id FKs
-    const inventoryRows = validItems.map(item => ({
-      ...item,
-      business_id: businessId,
-      menu_item_id: menuItemMap.get(item.name.toLowerCase().trim()) ?? null,
-    }))
-
     const CHUNK_SIZE = 100
-    for (let start = 0; start < inventoryRows.length; start += CHUNK_SIZE) {
-      const chunk = inventoryRows.slice(start, start + CHUNK_SIZE)
-      const { error: insertError } = await supabase
+    for (let start = 0; start < validItems.length; start += CHUNK_SIZE) {
+      const chunk = validItems.slice(start, start + CHUNK_SIZE).map(item => ({
+        ...item,
+        business_id: businessId,
+      }))
+      const { error: upsertError } = await supabase
         .from('inventory')
         .upsert(chunk, { onConflict: 'business_id,name' })
-      if (insertError) {
-        res.status(500).json({ message: `Upsert failed: ${insertError.message}` })
+      if (upsertError) {
+        res.status(500).json({ message: `Upload failed: ${upsertError.message}` })
         return
       }
     }
 
-    res.json({
-      success_count: validItems.length,
-      error_count: errors.length,
-      errors,
-    })
+    res.json({ success_count: validItems.length, error_count: errors.length, errors })
   } catch (e: any) {
     console.error('Inventory upload error:', e)
     res.status(500).json({ message: e.message || 'Internal server error' })
