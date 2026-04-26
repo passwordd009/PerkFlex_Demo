@@ -130,9 +130,11 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
     const CHUNK_SIZE = 100
     for (let start = 0; start < inventoryRows.length; start += CHUNK_SIZE) {
       const chunk = inventoryRows.slice(start, start + CHUNK_SIZE)
-      const { error: insertError } = await supabase.from('inventory').insert(chunk)
+      const { error: insertError } = await supabase
+        .from('inventory')
+        .upsert(chunk, { onConflict: 'business_id,name' })
       if (insertError) {
-        res.status(500).json({ message: `Insert failed: ${insertError.message}` })
+        res.status(500).json({ message: `Upsert failed: ${insertError.message}` })
         return
       }
     }

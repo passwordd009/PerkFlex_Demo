@@ -32,10 +32,19 @@ export default async function BusinessPage({ params }: Props) {
 
   if (!business) notFound()
 
+  // Deduplicate by name, keeping the first (earliest) occurrence
+  const seen = new Set<string>()
+  const inventoryItems = ((inventoryData ?? []) as InventoryItem[]).filter(item => {
+    const key = item.name.toLowerCase().trim()
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
   return (
     <BusinessMenuClient
       business={business as Business}
-      inventoryItems={(inventoryData ?? []) as InventoryItem[]}
+      inventoryItems={inventoryItems}
       discounts={(discountData ?? []) as Discount[]}
     />
   )

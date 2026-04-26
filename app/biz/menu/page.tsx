@@ -41,7 +41,15 @@ export default function MenuManagementPage() {
         .eq('business_id', businessId!)
         .order('category')
         .order('name')
-      return (data ?? []) as InventoryItem[]
+      const rows = (data ?? []) as InventoryItem[]
+      // Deduplicate by name, keeping the most recent row
+      const seen = new Set<string>()
+      return rows.filter(item => {
+        const key = item.name.toLowerCase().trim()
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
     },
   })
 
