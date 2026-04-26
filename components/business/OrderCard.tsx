@@ -64,7 +64,7 @@ export function OrderCard({ order }: OrderCardProps) {
           {order.items?.map(item => (
             <div key={item.id} className="flex justify-between text-sm py-0.5">
               <span className="text-gray-600">
-                {item.quantity}× {(item as any).inventory?.name}
+                {item.quantity}× {(item as any).item_name}
               </span>
               <span>{formatCurrency(item.subtotal)}</span>
             </div>

@@ -28,7 +28,7 @@ router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
     const inventoryItemIds = items.map(i => i.inventoryItemId)
     const { data: inventoryItems, error: invError } = await supabase
       .from('inventory')
-      .select('id, price, quantity, business_id')
+      .select('id, name, price, quantity, business_id')
       .in('id', inventoryItemIds)
 
     if (invError || !inventoryItems) {
@@ -53,7 +53,7 @@ router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
       }
     }
 
-    // Calculate total using server-side prices
+    // Calculate total using server-side prices; snapshot item_name so history needs no join
     let total = 0
     const orderItemsData = items.map(item => {
       const inv = inventoryItems.find(m => m.id === item.inventoryItemId)!
@@ -61,6 +61,7 @@ router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
       total += subtotal
       return {
         inventory_item_id: item.inventoryItemId,
+        item_name: inv.name,
         quantity: item.quantity,
         unit_price: inv.price,
         subtotal,
@@ -110,16 +111,17 @@ router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
       .single()
 
     if (orderError || !order) {
-      res.status(500).json({ message: 'Failed to create order' })
+      res.status(500).json({ message: `Failed to create order: ${orderError?.message}` })
       return
     }
 
-    // Insert order items
+    // Insert order items — rollback order on failure
     const { error: itemsError } = await supabase.from('order_items').insert(
       orderItemsData.map(item => ({ ...item, order_id: order.id }))
     )
     if (itemsError) {
-      res.status(500).json({ message: 'Failed to create order items' })
+      await supabase.from('orders').delete().eq('id', order.id)
+      res.status(500).json({ message: `Failed to create order items: ${itemsError.message}` })
       return
     }
 
@@ -149,11 +151,7 @@ router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
 router.get('/', async (req: AuthenticatedRequest, res) => {
   const { data, error } = await supabase
     .from('orders')
-    .select(`
-      *,
-      businesses(id, name, logo_url, address),
-      order_items(*, inventory(id, name))
-    `)
+    .select('*, businesses(id, name, logo_url, address), order_items(*)')
     .eq('customer_id', req.userId!)
     .order('created_at', { ascending: false })
 
@@ -168,11 +166,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
 router.get('/:id', async (req: AuthenticatedRequest, res) => {
   const { data, error } = await supabase
     .from('orders')
-    .select(`
-      *,
-      businesses(id, name, logo_url, address),
-      order_items(*, inventory(id, name, price))
-    `)
+    .select('*, businesses(id, name, logo_url, address), order_items(*)')
     .eq('id', req.params.id)
     .eq('customer_id', req.userId!)
     .single()

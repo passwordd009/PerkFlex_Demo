@@ -1,7 +1,11 @@
--- order_items will now reference inventory directly
-ALTER TABLE order_items
-  ADD COLUMN inventory_item_id UUID REFERENCES inventory(id) ON DELETE RESTRICT;
-
--- keep menu_item_id but make it nullable so existing rows aren't broken
+-- Make menu_item_id nullable (was NOT NULL in original schema)
 ALTER TABLE order_items
   ALTER COLUMN menu_item_id DROP NOT NULL;
+
+-- Add inventory reference (loose FK — SET NULL on delete so orders survive inventory changes)
+ALTER TABLE order_items
+  ADD COLUMN IF NOT EXISTS inventory_item_id UUID REFERENCES inventory(id) ON DELETE SET NULL;
+
+-- Snapshot the item name at order time so history never needs a join
+ALTER TABLE order_items
+  ADD COLUMN IF NOT EXISTS item_name TEXT;

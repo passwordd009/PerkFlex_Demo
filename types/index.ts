@@ -63,13 +63,12 @@ export interface Order {
 export interface OrderItem {
   id: string
   order_id: string
-  inventory_item_id: string
+  inventory_item_id: string | null
   menu_item_id: string | null
+  item_name: string | null
   quantity: number
   unit_price: number
   subtotal: number
-  // joined
-  inventory?: Pick<InventoryItem, 'id' | 'name' | 'price'>
 }
 
 // ─── Points ──────────────────────────────────────────────────────────────────
