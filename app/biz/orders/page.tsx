@@ -35,7 +35,7 @@ export default function BusinessOrdersPage() {
 
       const { data } = await supabase
         .from('orders')
-        .select('*, order_items(*, menu_items(id, name))')
+        .select('*, order_items(*, inventory(id, name))')
         .eq('business_id', business.id)
         .order('created_at', { ascending: false })
         .limit(50)

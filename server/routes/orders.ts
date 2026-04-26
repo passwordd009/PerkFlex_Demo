@@ -24,31 +24,31 @@ router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
   }
 
   try {
-    // Fetch menu items to verify prices server-side
-    const menuItemIds = items.map(i => i.menuItemId)
-    const { data: menuItems, error: menuError } = await supabase
-      .from('menu_items')
-      .select('id, price, is_available, business_id, points_value')
-      .in('id', menuItemIds)
+    // Fetch inventory items to verify prices and availability server-side
+    const inventoryItemIds = items.map(i => i.inventoryItemId)
+    const { data: inventoryItems, error: invError } = await supabase
+      .from('inventory')
+      .select('id, price, quantity, business_id')
+      .in('id', inventoryItemIds)
 
-    if (menuError || !menuItems) {
-      res.status(500).json({ message: 'Failed to fetch menu items' })
+    if (invError || !inventoryItems) {
+      res.status(500).json({ message: 'Failed to fetch inventory items' })
       return
     }
 
-    // Validate all items belong to the business and are available
+    // Validate all items belong to the business and are in stock
     for (const item of items) {
-      const menuItem = menuItems.find(m => m.id === item.menuItemId)
-      if (!menuItem) {
-        res.status(400).json({ message: `Menu item ${item.menuItemId} not found` })
+      const inv = inventoryItems.find(m => m.id === item.inventoryItemId)
+      if (!inv) {
+        res.status(400).json({ message: `Item ${item.inventoryItemId} not found` })
         return
       }
-      if (menuItem.business_id !== businessId) {
+      if (inv.business_id !== businessId) {
         res.status(400).json({ message: 'All items must belong to the same business' })
         return
       }
-      if (!menuItem.is_available) {
-        res.status(400).json({ message: `Item "${item.menuItemId}" is not available` })
+      if (inv.quantity <= 0) {
+        res.status(400).json({ message: `Item is out of stock` })
         return
       }
     }
@@ -56,13 +56,13 @@ router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
     // Calculate total using server-side prices
     let total = 0
     const orderItemsData = items.map(item => {
-      const menuItem = menuItems.find(m => m.id === item.menuItemId)!
-      const subtotal = menuItem.price * item.quantity
+      const inv = inventoryItems.find(m => m.id === item.inventoryItemId)!
+      const subtotal = inv.price * item.quantity
       total += subtotal
       return {
-        menu_item_id: item.menuItemId,
+        inventory_item_id: item.inventoryItemId,
         quantity: item.quantity,
-        unit_price: menuItem.price,
+        unit_price: inv.price,
         subtotal,
       }
     })
@@ -128,7 +128,6 @@ router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
       try {
         await redeemPoints(userId, order.id, rewardId, pointsRedeemed)
       } catch (e: any) {
-        // Roll back order if redemption fails
         await supabase.from('orders').delete().eq('id', order.id)
         res.status(400).json({ message: e.message })
         return
@@ -153,7 +152,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
     .select(`
       *,
       businesses(id, name, logo_url, address),
-      order_items(*, menu_items(id, name))
+      order_items(*, inventory(id, name))
     `)
     .eq('customer_id', req.userId!)
     .order('created_at', { ascending: false })
@@ -172,7 +171,7 @@ router.get('/:id', async (req: AuthenticatedRequest, res) => {
     .select(`
       *,
       businesses(id, name, logo_url, address),
-      order_items(*, menu_items(id, name, price))
+      order_items(*, inventory(id, name, price))
     `)
     .eq('id', req.params.id)
     .eq('customer_id', req.userId!)

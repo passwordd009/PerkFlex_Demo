@@ -1,12 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Cart, CartItem, MenuItem } from '@/types'
+import type { Cart, InventoryItem } from '@/types'
 import { calcPointsDiscount } from '@/lib/utils'
 
 interface CartStore extends Cart {
-  addItem: (item: MenuItem, businessId: string, districtId: string | null) => void
-  removeItem: (menuItemId: string) => void
-  updateQuantity: (menuItemId: string, quantity: number) => void
+  addItem: (item: InventoryItem, businessId: string, districtId: string | null) => void
+  removeItem: (inventoryItemId: string) => void
+  updateQuantity: (inventoryItemId: string, quantity: number) => void
   applyReward: (rewardId: string) => void
   clearReward: () => void
   clearCart: () => void
@@ -22,39 +22,38 @@ export const useCartStore = create<CartStore>()(
       districtId: null,
       appliedRewardId: null,
 
-      addItem(menuItem, businessId, districtId) {
+      addItem(item, businessId, districtId) {
         const { items, businessId: currentBiz } = get()
-        // If switching business, clear cart first
         if (currentBiz && currentBiz !== businessId) {
-          set({ items: [{ menuItem, quantity: 1 }], businessId, districtId, appliedRewardId: null })
+          set({ items: [{ item, quantity: 1 }], businessId, districtId, appliedRewardId: null })
           return
         }
-        const existing = items.find(i => i.menuItem.id === menuItem.id)
+        const existing = items.find(i => i.item.id === item.id)
         if (existing) {
           set({
             items: items.map(i =>
-              i.menuItem.id === menuItem.id ? { ...i, quantity: i.quantity + 1 } : i
+              i.item.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
             ),
             businessId,
             districtId,
           })
         } else {
-          set({ items: [...items, { menuItem, quantity: 1 }], businessId, districtId })
+          set({ items: [...items, { item, quantity: 1 }], businessId, districtId })
         }
       },
 
-      removeItem(menuItemId) {
-        set(s => ({ items: s.items.filter(i => i.menuItem.id !== menuItemId) }))
+      removeItem(inventoryItemId) {
+        set(s => ({ items: s.items.filter(i => i.item.id !== inventoryItemId) }))
       },
 
-      updateQuantity(menuItemId, quantity) {
+      updateQuantity(inventoryItemId, quantity) {
         if (quantity <= 0) {
-          get().removeItem(menuItemId)
+          get().removeItem(inventoryItemId)
           return
         }
         set(s => ({
           items: s.items.map(i =>
-            i.menuItem.id === menuItemId ? { ...i, quantity } : i
+            i.item.id === inventoryItemId ? { ...i, quantity } : i
           ),
         }))
       },
@@ -72,7 +71,7 @@ export const useCartStore = create<CartStore>()(
       },
 
       total() {
-        return get().items.reduce((sum, i) => sum + i.menuItem.price * i.quantity, 0)
+        return get().items.reduce((sum, i) => sum + i.item.price * i.quantity, 0)
       },
 
       discountedTotal(pointsCost: number) {

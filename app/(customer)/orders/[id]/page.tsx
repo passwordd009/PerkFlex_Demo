@@ -80,7 +80,7 @@ export default function OrderDetailPage() {
                 {(order as any).order_items?.map((item: any) => (
                   <div key={item.id} className="flex justify-between text-sm">
                     <span className="text-gray-600">
-                      {item.quantity}× {item.menu_items?.name}
+                      {item.quantity}× {item.inventory?.name}
                     </span>
                     <span>{formatCurrency(item.subtotal)}</span>
                   </div>

@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Trash2, Star } from 'lucide-react'
+import { ShoppingCart, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency, formatPoints } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import { useCartStore } from '@/lib/store'
 import { ordersApi } from '@/lib/api'
 import { useMutation } from '@tanstack/react-query'
@@ -27,7 +27,7 @@ export function CartSheet({ businessId }: CartSheetProps) {
     mutationFn: () =>
       ordersApi.create({
         businessId,
-        items: items.map(i => ({ menuItemId: i.menuItem.id, quantity: i.quantity })),
+        items: items.map(i => ({ inventoryItemId: i.item.id, quantity: i.quantity })),
         rewardId: appliedRewardId ?? undefined,
       }),
     onSuccess: (data) => {
@@ -45,7 +45,6 @@ export function CartSheet({ businessId }: CartSheetProps) {
 
   return (
     <>
-      {/* FAB trigger */}
       <motion.button
         initial={{ y: 80, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -59,7 +58,6 @@ export function CartSheet({ businessId }: CartSheetProps) {
         </Badge>
       </motion.button>
 
-      {/* Bottom sheet */}
       <AnimatePresence>
         {isOpen && (
           <>
@@ -77,24 +75,23 @@ export function CartSheet({ businessId }: CartSheetProps) {
               transition={{ type: 'spring', stiffness: 400, damping: 35 }}
               className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl px-4 pb-8 pt-4 max-h-[80vh] overflow-y-auto"
             >
-              {/* Handle */}
               <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
               <h2 className="text-lg font-bold text-foreground mb-4">Your Cart</h2>
 
               <div className="space-y-3 mb-4">
-                {items.map(({ menuItem, quantity }) => (
-                  <div key={menuItem.id} className="flex items-center gap-3">
+                {items.map(({ item, quantity }) => (
+                  <div key={item.id} className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{menuItem.name}</p>
+                      <p className="font-medium text-sm truncate">{item.name}</p>
                       <p className="text-xs text-gray-500">
-                        {formatCurrency(menuItem.price)} × {quantity}
+                        {formatCurrency(item.price)} × {quantity}
                       </p>
                     </div>
                     <span className="font-bold text-sm">
-                      {formatCurrency(menuItem.price * quantity)}
+                      {formatCurrency(item.price * quantity)}
                     </span>
                     <button
-                      onClick={() => removeItem(menuItem.id)}
+                      onClick={() => removeItem(item.id)}
                       className="text-gray-400 hover:text-red-500 transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -111,12 +108,7 @@ export function CartSheet({ businessId }: CartSheetProps) {
                 <p className="text-xs text-gray-400 mt-1">Pay in person when you pick up</p>
               </div>
 
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={() => placeOrder()}
-                disabled={isPending}
-              >
+              <Button className="w-full" size="lg" onClick={() => placeOrder()} disabled={isPending}>
                 {isPending ? 'Placing Order…' : 'Place Order & Get QR Code'}
               </Button>
             </motion.div>

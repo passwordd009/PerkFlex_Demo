@@ -39,22 +39,6 @@ export interface Business {
   district?: District
 }
 
-// ─── Menu Items ──────────────────────────────────────────────────────────────
-
-export interface MenuItem {
-  id: string
-  business_id: string
-  name: string
-  description: string | null
-  price: number
-  category: string | null
-  image_url: string | null
-  is_available: boolean
-  points_value: number
-  discount_pct: number | null
-  created_at: string
-}
-
 // ─── Orders ──────────────────────────────────────────────────────────────────
 
 export type OrderStatus = 'pending' | 'confirmed' | 'ready' | 'completed' | 'cancelled'
@@ -79,12 +63,13 @@ export interface Order {
 export interface OrderItem {
   id: string
   order_id: string
-  menu_item_id: string
+  inventory_item_id: string
+  menu_item_id: string | null
   quantity: number
   unit_price: number
   subtotal: number
   // joined
-  menu_item?: MenuItem
+  inventory?: Pick<InventoryItem, 'id' | 'name' | 'price'>
 }
 
 // ─── Points ──────────────────────────────────────────────────────────────────
@@ -134,7 +119,7 @@ export interface RewardRedemption {
 // ─── Cart ────────────────────────────────────────────────────────────────────
 
 export interface CartItem {
-  menuItem: MenuItem
+  item: InventoryItem
   quantity: number
 }
 
@@ -204,7 +189,7 @@ export interface CreateDiscountResponse {
 
 export interface CreateOrderRequest {
   businessId: string
-  items: { menuItemId: string; quantity: number }[]
+  items: { inventoryItemId: string; quantity: number }[]
   notes?: string
   rewardId?: string
   customerLat?: number
