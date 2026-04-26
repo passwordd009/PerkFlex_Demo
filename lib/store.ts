@@ -9,6 +9,8 @@ interface CartStore extends Cart {
   updateQuantity: (inventoryItemId: string, quantity: number) => void
   applyReward: (rewardId: string) => void
   clearReward: () => void
+  applyDiscount: (discountId: string) => void
+  clearDiscount: () => void
   clearCart: () => void
   total: () => number
   discountedTotal: (pointsCost: number) => number
@@ -21,11 +23,12 @@ export const useCartStore = create<CartStore>()(
       businessId: null,
       districtId: null,
       appliedRewardId: null,
+      appliedDiscountId: null,
 
       addItem(item, businessId, districtId) {
         const { items, businessId: currentBiz } = get()
         if (currentBiz && currentBiz !== businessId) {
-          set({ items: [{ item, quantity: 1 }], businessId, districtId, appliedRewardId: null })
+          set({ items: [{ item, quantity: 1 }], businessId, districtId, appliedRewardId: null, appliedDiscountId: null })
           return
         }
         const existing = items.find(i => i.item.id === item.id)
@@ -58,16 +61,13 @@ export const useCartStore = create<CartStore>()(
         }))
       },
 
-      applyReward(rewardId) {
-        set({ appliedRewardId: rewardId })
-      },
-
-      clearReward() {
-        set({ appliedRewardId: null })
-      },
+      applyReward(rewardId) { set({ appliedRewardId: rewardId }) },
+      clearReward() { set({ appliedRewardId: null }) },
+      applyDiscount(discountId) { set({ appliedDiscountId: discountId }) },
+      clearDiscount() { set({ appliedDiscountId: null }) },
 
       clearCart() {
-        set({ items: [], businessId: null, districtId: null, appliedRewardId: null })
+        set({ items: [], businessId: null, districtId: null, appliedRewardId: null, appliedDiscountId: null })
       },
 
       total() {
@@ -82,7 +82,7 @@ export const useCartStore = create<CartStore>()(
     {
       name: 'perkflex-cart-v2',
       version: 1,
-      migrate: () => ({ items: [], businessId: null, districtId: null, appliedRewardId: null }),
+      migrate: () => ({ items: [], businessId: null, districtId: null, appliedRewardId: null, appliedDiscountId: null }),
     }
   )
 )

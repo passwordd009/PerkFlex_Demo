@@ -15,6 +15,7 @@ interface DetailsData {
   title: string
   description: string
   image_url: string
+  points_cost: number
 }
 
 export function DiscountWizard() {
@@ -22,7 +23,7 @@ export function DiscountWizard() {
   const [items, setItems] = useState<InventoryItem[]>([])
   const [isLoadingItems, setIsLoadingItems] = useState(true)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [details, setDetails] = useState<DetailsData>({ title: '', description: '', image_url: '' })
+  const [details, setDetails] = useState<DetailsData>({ title: '', description: '', image_url: '', points_cost: 5 })
   const [percentage, setPercentage] = useState(20)
   const [isApplying, setIsApplying] = useState(false)
 
@@ -49,6 +50,7 @@ export function DiscountWizard() {
     const payload: CreateDiscountRequest = {
       title: details.title,
       discount_percentage: percentage,
+      points_cost: details.points_cost,
       item_ids: Array.from(selectedIds),
       ...(details.description && { description: details.description }),
       ...(details.image_url && { image_url: details.image_url }),
@@ -66,7 +68,7 @@ export function DiscountWizard() {
   function handleReset() {
     setStep('select')
     setSelectedIds(new Set())
-    setDetails({ title: '', description: '', image_url: '' })
+    setDetails({ title: '', description: '', image_url: '', points_cost: 5 })
     setPercentage(20)
   }
 

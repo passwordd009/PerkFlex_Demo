@@ -5,15 +5,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const POINTS_PER_DOLLAR = 10
-const POINTS_TO_DOLLAR = 100
+const POINTS_RATE = 0.05   // 5% of purchase
+const POINTS_CAP  = 20     // max 20 points per transaction
 
 export function calcPointsEarned(total: number): number {
-  return Math.floor(total * POINTS_PER_DOLLAR)
-}
-
-export function calcDiscount(pointsRedeemed: number): number {
-  return pointsRedeemed / POINTS_TO_DOLLAR
+  return Math.min(Math.floor(total * POINTS_RATE), POINTS_CAP)
 }
 
 /**

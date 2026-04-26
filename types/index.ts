@@ -127,6 +127,7 @@ export interface Cart {
   businessId: string | null
   districtId: string | null
   appliedRewardId: string | null
+  appliedDiscountId: string | null
 }
 
 // ─── Inventory ───────────────────────────────────────────────────────────────
@@ -167,6 +168,7 @@ export interface Discount {
   description: string | null
   image_url: string | null
   discount_percentage: number
+  points_cost: number
   item_ids: string[]
   created_at: string
 }
@@ -176,6 +178,7 @@ export interface CreateDiscountRequest {
   description?: string
   image_url?: string
   discount_percentage: number
+  points_cost: number
   item_ids: string[]
 }
 
@@ -190,6 +193,7 @@ export interface CreateOrderRequest {
   items: { inventoryItemId: string; quantity: number }[]
   notes?: string
   rewardId?: string
+  discountId?: string
   customerLat?: number
   customerLng?: number
 }
