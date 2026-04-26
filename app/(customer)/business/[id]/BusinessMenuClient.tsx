@@ -7,22 +7,33 @@ import { motion } from 'framer-motion'
 import { MenuCard } from '@/components/customer/MenuCard'
 import { CartSheet } from '@/components/customer/CartSheet'
 import { Badge } from '@/components/ui/badge'
-import type { Business, MenuItem } from '@/types'
+import type { Business, InventoryItem, Discount } from '@/types'
 
 interface Props {
   business: Business
-  menuItems: MenuItem[]
+  inventoryItems: InventoryItem[]
+  discounts: Discount[]
 }
 
-export function BusinessMenuClient({ business, menuItems }: Props) {
+export function BusinessMenuClient({ business, inventoryItems, discounts }: Props) {
+  const discountMap = useMemo(() => {
+    const map = new Map<string, Discount>()
+    for (const discount of discounts) {
+      for (const itemId of discount.item_ids) {
+        if (!map.has(itemId)) map.set(itemId, discount)
+      }
+    }
+    return map
+  }, [discounts])
+
   const grouped = useMemo(() => {
-    const map = new Map<string, MenuItem[]>()
-    for (const item of menuItems) {
+    const map = new Map<string, InventoryItem[]>()
+    for (const item of inventoryItems) {
       const cat = item.category ?? 'Other'
       map.set(cat, [...(map.get(cat) ?? []), item])
     }
     return map
-  }, [menuItems])
+  }, [inventoryItems])
 
   return (
     <div>
@@ -71,7 +82,7 @@ export function BusinessMenuClient({ business, menuItems }: Props) {
 
         {/* Menu */}
         {grouped.size === 0 ? (
-          <p className="text-center text-gray-400 text-sm py-12">No menu items available</p>
+          <p className="text-center text-gray-400 text-sm py-12">No items available</p>
         ) : (
           <div className="space-y-6 pb-6">
             {[...grouped.entries()].map(([category, items]) => (
@@ -85,7 +96,11 @@ export function BusinessMenuClient({ business, menuItems }: Props) {
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: i * 0.05 }}
                     >
-                      <MenuCard item={item} business={business} />
+                      <MenuCard
+                        item={item}
+                        discount={discountMap.get(item.id) ?? null}
+                        business={business}
+                      />
                     </motion.div>
                   ))}
                 </div>

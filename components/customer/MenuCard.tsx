@@ -1,30 +1,53 @@
 'use client'
 
-import { Plus, Minus, Star, Tag } from 'lucide-react'
+import { Plus, Minus, Tag } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils'
 import { useCartStore } from '@/lib/store'
-import type { MenuItem, Business } from '@/types'
+import type { InventoryItem, Discount, Business, MenuItem } from '@/types'
 
 interface MenuCardProps {
-  item: MenuItem
+  item: InventoryItem
+  discount: Discount | null
   business: Business
 }
 
-export function MenuCard({ item, business }: MenuCardProps) {
+export function MenuCard({ item, discount, business }: MenuCardProps) {
   const { items, addItem, updateQuantity } = useCartStore()
-  const cartItem = items.find(i => i.menuItem.id === item.id)
+
+  // Cart uses menu_item_id so orders route to the correct menu_items record
+  const cartId = item.menu_item_id ?? item.id
+  const cartItem = items.find(i => i.menuItem.id === cartId)
   const qty = cartItem?.quantity ?? 0
-  const discountedPrice = item.discount_pct ? item.price * (1 - item.discount_pct / 100) : null
+
+  const discountedPrice = discount
+    ? item.price * (1 - discount.discount_percentage / 100)
+    : null
+
+  const isAvailable = item.quantity > 0
 
   const handleAdd = () => {
-    addItem(item, business.id, business.district_id)
+    // Synthesize a MenuItem-compatible shape for the cart store
+    const menuItem: MenuItem = {
+      id: cartId,
+      business_id: item.business_id,
+      name: item.name,
+      description: null,
+      price: item.price,
+      category: item.category,
+      image_url: item.image_url,
+      is_available: isAvailable,
+      points_value: 0,
+      discount_pct: discount ? discount.discount_percentage : null,
+      created_at: item.created_at,
+    }
+    addItem(menuItem, business.id, business.district_id)
   }
 
   const handleDecrement = () => {
-    updateQuantity(item.id, qty - 1)
+    updateQuantity(cartId, qty - 1)
   }
 
   return (
@@ -42,26 +65,17 @@ export function MenuCard({ item, business }: MenuCardProps) {
           )}
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-foreground text-sm leading-tight">{item.name}</p>
-            {item.description && (
-              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{item.description}</p>
+
+            {discount && (
+              <span className="inline-flex items-center gap-0.5 mt-0.5 text-[10px] text-secondary font-medium">
+                <Tag className="h-3 w-3" />
+                {discount.discount_percentage}% off
+              </span>
             )}
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-              {item.points_value > 0 && (
-                <span className="flex items-center gap-0.5 text-[10px] text-amber-600 font-medium">
-                  <Star className="h-3 w-3 fill-support text-support" />
-                  +{item.points_value} pts
-                </span>
-              )}
-              {item.discount_pct && (
-                <span className="flex items-center gap-0.5 text-[10px] text-secondary font-medium">
-                  <Tag className="h-3 w-3" />
-                  {item.discount_pct}% off w/ points
-                </span>
-              )}
-            </div>
+
             <div className="flex items-center justify-between mt-2">
               <div className="flex items-center gap-1.5">
-                {discountedPrice ? (
+                {discountedPrice !== null ? (
                   <>
                     <span className="text-xs text-gray-400 line-through">{formatCurrency(item.price)}</span>
                     <span className="font-bold text-secondary">{formatCurrency(discountedPrice)}</span>
@@ -83,7 +97,7 @@ export function MenuCard({ item, business }: MenuCardProps) {
                       size="icon"
                       className="h-8 w-8 rounded-full"
                       onClick={handleAdd}
-                      disabled={!item.is_available}
+                      disabled={!isAvailable}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>

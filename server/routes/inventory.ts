@@ -65,31 +65,20 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
       return
     }
     if (!business) {
-      res.status(403).json({ message: 'No business found for this account', debug_owner_id: userId })
+      res.status(403).json({ message: 'No business found for this account' })
       return
     }
 
     const businessId = business.id
 
-    // Build a name→id map for menu items belonging to this business (single query, no N+1)
-    const { data: menuItems } = await supabase
-      .from('menu_items')
-      .select('id, name')
-      .eq('business_id', businessId)
-
-    const menuItemMap = new Map(
-      (menuItems ?? []).map((m: { id: string; name: string }) => [m.name.toLowerCase().trim(), m.id])
-    )
-
     // Re-validate every item server-side
-    const validItems: Array<{ name: string; price: number; quantity: number; category: string; business_id: string; menu_item_id: string | null }> = []
+    const validItems: Array<{ name: string; price: number; quantity: number; category: string }> = []
     const errors: Array<{ row: number; message: string }> = []
 
     for (let i = 0; i < items.length; i++) {
       const parsed = InventoryItemSchema.safeParse(items[i])
       if (parsed.success) {
-        const menu_item_id = menuItemMap.get(parsed.data.name.toLowerCase().trim()) ?? null
-        validItems.push({ ...parsed.data, business_id: businessId, menu_item_id })
+        validItems.push(parsed.data)
       } else {
         const message = parsed.error.issues.map((e: { message: string }) => e.message).join('; ')
         errors.push({ row: i + 1, message })
@@ -105,20 +94,9 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
       return
     }
 
-    // Batch insert inventory in chunks of 100
-    const CHUNK_SIZE = 100
-    for (let start = 0; start < validItems.length; start += CHUNK_SIZE) {
-      const chunk = validItems.slice(start, start + CHUNK_SIZE)
-      const { error: insertError } = await supabase.from('inventory').insert(chunk)
-      if (insertError) {
-        res.status(500).json({ message: `Insert failed: ${insertError.message}` })
-        return
-      }
-    }
-
-    // Sync to menu_items — upsert so re-uploads don't duplicate
+    // Upsert menu_items FIRST — so they exist before inventory rows reference them
     const menuItemsData = validItems.map(item => ({
-      business_id: item.business_id,
+      business_id: businessId,
       name: item.name,
       price: item.price,
       category: item.category,
@@ -130,6 +108,33 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
       .upsert(menuItemsData, { onConflict: 'business_id,name' })
     if (menuError) {
       console.error('Menu sync error:', menuError.message)
+    }
+
+    // Fetch updated name→id map (includes newly created rows)
+    const { data: menuItemRows } = await supabase
+      .from('menu_items')
+      .select('id, name')
+      .eq('business_id', businessId)
+
+    const menuItemMap = new Map(
+      (menuItemRows ?? []).map((m: { id: string; name: string }) => [m.name.toLowerCase().trim(), m.id])
+    )
+
+    // Batch insert inventory with correct menu_item_id FKs
+    const inventoryRows = validItems.map(item => ({
+      ...item,
+      business_id: businessId,
+      menu_item_id: menuItemMap.get(item.name.toLowerCase().trim()) ?? null,
+    }))
+
+    const CHUNK_SIZE = 100
+    for (let start = 0; start < inventoryRows.length; start += CHUNK_SIZE) {
+      const chunk = inventoryRows.slice(start, start + CHUNK_SIZE)
+      const { error: insertError } = await supabase.from('inventory').insert(chunk)
+      if (insertError) {
+        res.status(500).json({ message: `Insert failed: ${insertError.message}` })
+        return
+      }
     }
 
     res.json({
