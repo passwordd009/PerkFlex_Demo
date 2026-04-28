@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { AuthenticatedRequest } from '../middleware/auth'
 import { districtMiddleware } from '../middleware/district'
 import { signQRToken } from '../services/qr.service'
-import { calcPointsEarned, calcDiscount, redeemPoints } from '../services/points.service'
+import { calcPointsEarned, redeemPoints } from '../services/points.service'
 import type { CreateOrderRequest } from '../../types'
 
 const router = Router()
@@ -15,8 +15,7 @@ const supabase = createClient(
 // POST /orders — create a new preorder
 router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
   const userId = req.userId!
-  const { businessId, items, notes, rewardId, customerLat, customerLng } =
-    req.body as CreateOrderRequest
+  const { businessId, items, notes, rewardId, discountId } = req.body as CreateOrderRequest
 
   if (!businessId || !items?.length) {
     res.status(400).json({ message: 'businessId and items are required' })
@@ -24,75 +23,84 @@ router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
   }
 
   try {
-    // Fetch menu items to verify prices server-side
-    const menuItemIds = items.map(i => i.menuItemId)
-    const { data: menuItems, error: menuError } = await supabase
-      .from('menu_items')
-      .select('id, price, is_available, business_id, points_value')
-      .in('id', menuItemIds)
+    // Fetch inventory items — verify prices and stock server-side
+    const inventoryItemIds = items.map(i => i.inventoryItemId)
+    const { data: inventoryItems, error: invError } = await supabase
+      .from('inventory')
+      .select('id, name, price, quantity, business_id')
+      .in('id', inventoryItemIds)
 
-    if (menuError || !menuItems) {
-      res.status(500).json({ message: 'Failed to fetch menu items' })
+    if (invError || !inventoryItems) {
+      res.status(500).json({ message: 'Failed to fetch inventory items' })
       return
     }
 
-    // Validate all items belong to the business and are available
     for (const item of items) {
-      const menuItem = menuItems.find(m => m.id === item.menuItemId)
-      if (!menuItem) {
-        res.status(400).json({ message: `Menu item ${item.menuItemId} not found` })
+      const inv = inventoryItems.find(m => m.id === item.inventoryItemId)
+      if (!inv) {
+        res.status(400).json({ message: `Item ${item.inventoryItemId} not found` })
         return
       }
-      if (menuItem.business_id !== businessId) {
+      if (inv.business_id !== businessId) {
         res.status(400).json({ message: 'All items must belong to the same business' })
         return
       }
-      if (!menuItem.is_available) {
-        res.status(400).json({ message: `Item "${item.menuItemId}" is not available` })
+      if (inv.quantity <= 0) {
+        res.status(400).json({ message: `"${inv.name}" is out of stock` })
         return
       }
     }
 
-    // Calculate total using server-side prices
-    let total = 0
+    // Build order items with item_name snapshot
+    let subtotalBeforeDiscount = 0
     const orderItemsData = items.map(item => {
-      const menuItem = menuItems.find(m => m.id === item.menuItemId)!
-      const subtotal = menuItem.price * item.quantity
-      total += subtotal
+      const inv = inventoryItems.find(m => m.id === item.inventoryItemId)!
+      const subtotal = inv.price * item.quantity
+      subtotalBeforeDiscount += subtotal
       return {
-        menu_item_id: item.menuItemId,
+        inventory_item_id: item.inventoryItemId,
+        item_name: inv.name,
         quantity: item.quantity,
-        unit_price: menuItem.price,
+        unit_price: inv.price,
         subtotal,
       }
     })
 
-    // Apply reward discount if requested
-    let pointsRedeemed = 0
-    let discount = 0
-    if (rewardId) {
-      const { data: reward } = await supabase
-        .from('rewards')
-        .select('points_cost, discount_amount, discount_type, is_active, expires_at')
-        .eq('id', rewardId)
+    // Apply points-based discount if customer selected one
+    let discountSavings = 0
+    let discountPointsCost = 0
+    if (discountId) {
+      const { data: disc } = await supabase
+        .from('discounts')
+        .select('id, discount_percentage, points_cost, item_ids, business_id')
+        .eq('id', discountId)
+        .eq('business_id', businessId)
         .single()
 
-      if (reward && reward.is_active) {
-        const notExpired = !reward.expires_at || new Date(reward.expires_at) > new Date()
-        if (notExpired) {
-          pointsRedeemed = reward.points_cost
-          if (reward.discount_type === 'fixed') {
-            discount = reward.discount_amount ?? 0
-          } else if (reward.discount_type === 'percentage') {
-            discount = total * ((reward.discount_amount ?? 0) / 100)
-          } else {
-            discount = calcDiscount(pointsRedeemed)
-          }
+      if (disc && disc.points_cost > 0) {
+        // Verify customer balance
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('points_balance')
+          .eq('id', userId)
+          .single()
+
+        if (!profile || profile.points_balance < disc.points_cost) {
+          res.status(400).json({ message: 'Insufficient points to unlock this discount' })
+          return
         }
+
+        // Apply percentage only to items covered by this discount
+        const discountableSubtotal = orderItemsData
+          .filter(i => disc.item_ids.includes(i.inventory_item_id))
+          .reduce((sum, i) => sum + i.subtotal, 0)
+
+        discountSavings = discountableSubtotal * (disc.discount_percentage / 100)
+        discountPointsCost = disc.points_cost
       }
     }
 
-    const finalTotal = Math.max(0, total - discount)
+    const finalTotal = Math.max(0, subtotalBeforeDiscount - discountSavings)
     const pointsEarned = calcPointsEarned(finalTotal)
 
     // Create order
@@ -103,43 +111,59 @@ router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
         business_id: businessId,
         total: finalTotal,
         points_earned: pointsEarned,
-        points_redeemed: pointsRedeemed,
+        points_redeemed: discountPointsCost,
         notes,
       })
       .select('id')
       .single()
 
     if (orderError || !order) {
-      res.status(500).json({ message: 'Failed to create order' })
+      res.status(500).json({ message: `Failed to create order: ${orderError?.message}` })
       return
     }
 
-    // Insert order items
+    // Insert order items — rollback order on failure
     const { error: itemsError } = await supabase.from('order_items').insert(
       orderItemsData.map(item => ({ ...item, order_id: order.id }))
     )
     if (itemsError) {
-      res.status(500).json({ message: 'Failed to create order items' })
+      await supabase.from('orders').delete().eq('id', order.id)
+      res.status(500).json({ message: `Failed to create order items: ${itemsError.message}` })
       return
     }
 
-    // Handle reward redemption
-    if (rewardId && pointsRedeemed > 0) {
-      try {
-        await redeemPoints(userId, order.id, rewardId, pointsRedeemed)
-      } catch (e: any) {
-        // Roll back order if redemption fails
-        await supabase.from('orders').delete().eq('id', order.id)
-        res.status(400).json({ message: e.message })
-        return
+    // Deduct points for discount
+    if (discountId && discountPointsCost > 0) {
+      const { error: ledgerError } = await supabase.from('points_ledger').insert({
+        user_id: userId,
+        order_id: order.id,
+        type: 'redeemed',
+        amount: -discountPointsCost,
+        description: `Discount unlocked`,
+      })
+      if (!ledgerError) {
+        await supabase.rpc('increment_points', { p_user_id: userId, p_amount: -discountPointsCost })
       }
+    }
+
+    // Deduct points for legacy reward (kept for backward compat)
+    if (rewardId) {
+      try {
+        await redeemPoints(userId, order.id, rewardId, 0)
+      } catch (_) {}
     }
 
     // Sign QR token
     const qrToken = signQRToken(order.id, userId)
     await supabase.from('orders').update({ qr_token: qrToken }).eq('id', order.id)
 
-    res.json({ orderId: order.id, qrToken, total: finalTotal, pointsEarned, pointsRedeemed })
+    res.json({
+      orderId: order.id,
+      qrToken,
+      total: finalTotal,
+      pointsEarned,
+      pointsRedeemed: discountPointsCost,
+    })
   } catch (e: any) {
     console.error('Order creation error:', e)
     res.status(500).json({ message: e.message || 'Internal server error' })
@@ -150,11 +174,7 @@ router.post('/', districtMiddleware, async (req: AuthenticatedRequest, res) => {
 router.get('/', async (req: AuthenticatedRequest, res) => {
   const { data, error } = await supabase
     .from('orders')
-    .select(`
-      *,
-      businesses(id, name, logo_url, address),
-      order_items(*, menu_items(id, name))
-    `)
+    .select('*, businesses(id, name, logo_url, address), order_items(*)')
     .eq('customer_id', req.userId!)
     .order('created_at', { ascending: false })
 
@@ -169,11 +189,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
 router.get('/:id', async (req: AuthenticatedRequest, res) => {
   const { data, error } = await supabase
     .from('orders')
-    .select(`
-      *,
-      businesses(id, name, logo_url, address),
-      order_items(*, menu_items(id, name, price))
-    `)
+    .select('*, businesses(id, name, logo_url, address), order_items(*)')
     .eq('id', req.params.id)
     .eq('customer_id', req.userId!)
     .single()

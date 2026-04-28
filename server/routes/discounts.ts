@@ -13,7 +13,8 @@ const DiscountSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
   image_url: z.string().optional(),
-  discount_percentage: z.number().int().min(10, 'Minimum 10%').max(100, 'Maximum 100%'),
+  discount_percentage: z.number().int().min(1, 'Minimum 1%').max(100, 'Maximum 100%'),
+  points_cost: z.number().int().min(1, 'Points cost must be at least 1'),
   item_ids: z.array(z.string().uuid()).min(1, 'At least one item must be selected'),
 })
 

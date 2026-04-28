@@ -47,7 +47,7 @@ function transformRows(
   return { valid, errors }
 }
 
-export function CSVUpload() {
+export function CSVUpload({ onDone }: { onDone?: () => void } = {}) {
   const [step, setStep] = useState<Step>('idle')
   const [rows, setRows] = useState<Record<string, string>[]>([])
   const [headers, setHeaders] = useState<string[]>([])
@@ -81,6 +81,7 @@ export function CSVUpload() {
         errors: [...frontendErrors, ...response.errors],
       })
       setStep('done')
+      onDone?.()
     } catch (e: any) {
       toast.error(e.message || 'Upload failed')
       setStep('preview')

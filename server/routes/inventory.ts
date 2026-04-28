@@ -42,7 +42,7 @@ router.get('/', async (req: AuthenticatedRequest, res) => {
   }
 })
 
-// POST /inventory/upload — bulk insert inventory items from CSV
+// POST /inventory/upload — bulk upsert inventory items from CSV
 router.post('/upload', async (req: AuthenticatedRequest, res) => {
   const userId = req.userId!
 
@@ -53,7 +53,6 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
   }
 
   try {
-    // Resolve business_id from authenticated user — never trust client
     const { data: business, error: bizError } = await supabase
       .from('businesses')
       .select('id')
@@ -71,25 +70,13 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
 
     const businessId = business.id
 
-    // Build a name→id map for menu items belonging to this business (single query, no N+1)
-    const { data: menuItems } = await supabase
-      .from('menu_items')
-      .select('id, name')
-      .eq('business_id', businessId)
-
-    const menuItemMap = new Map(
-      (menuItems ?? []).map((m: { id: string; name: string }) => [m.name.toLowerCase().trim(), m.id])
-    )
-
-    // Re-validate every item server-side
-    const validItems: Array<{ name: string; price: number; quantity: number; category: string; business_id: string; menu_item_id: string | null }> = []
+    const validItems: Array<{ name: string; price: number; quantity: number; category: string }> = []
     const errors: Array<{ row: number; message: string }> = []
 
     for (let i = 0; i < items.length; i++) {
       const parsed = InventoryItemSchema.safeParse(items[i])
       if (parsed.success) {
-        const menu_item_id = menuItemMap.get(parsed.data.name.toLowerCase().trim()) ?? null
-        validItems.push({ ...parsed.data, business_id: businessId, menu_item_id })
+        validItems.push(parsed.data)
       } else {
         const message = parsed.error.issues.map((e: { message: string }) => e.message).join('; ')
         errors.push({ row: i + 1, message })
@@ -97,30 +84,26 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
     }
 
     if (validItems.length === 0) {
-      res.status(422).json({
-        success_count: 0,
-        error_count: errors.length,
-        errors,
-      })
+      res.status(422).json({ success_count: 0, error_count: errors.length, errors })
       return
     }
 
-    // Batch insert in chunks of 100
     const CHUNK_SIZE = 100
     for (let start = 0; start < validItems.length; start += CHUNK_SIZE) {
-      const chunk = validItems.slice(start, start + CHUNK_SIZE)
-      const { error: insertError } = await supabase.from('inventory').insert(chunk)
-      if (insertError) {
-        res.status(500).json({ message: `Insert failed: ${insertError.message}` })
+      const chunk = validItems.slice(start, start + CHUNK_SIZE).map(item => ({
+        ...item,
+        business_id: businessId,
+      }))
+      const { error: upsertError } = await supabase
+        .from('inventory')
+        .upsert(chunk, { onConflict: 'business_id,name' })
+      if (upsertError) {
+        res.status(500).json({ message: `Upload failed: ${upsertError.message}` })
         return
       }
     }
 
-    res.json({
-      success_count: validItems.length,
-      error_count: errors.length,
-      errors,
-    })
+    res.json({ success_count: validItems.length, error_count: errors.length, errors })
   } catch (e: any) {
     console.error('Inventory upload error:', e)
     res.status(500).json({ message: e.message || 'Internal server error' })

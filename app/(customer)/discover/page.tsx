@@ -13,7 +13,7 @@ export default async function DiscoverPage() {
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-12 pb-3 bg-white/90 backdrop-blur-sm z-10 absolute top-0 left-0 right-0">
+      <div className="flex items-center justify-between px-4 pt-12 pb-3 bg-white/90 backdrop-blur-sm z-10 top-0 left-0 right-0">
         <div>
           <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Discover</p>
           <h1 className="text-xl font-black text-foreground leading-tight">Local Businesses</h1>

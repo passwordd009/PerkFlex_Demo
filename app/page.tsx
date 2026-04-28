@@ -7,12 +7,16 @@ export default async function RootPage() {
 
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data: profile, error} = await supabase
     .from('profiles')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', user?.id)
     .single()
 
+  if (error || !profile) {
+    redirect('/discover') // fallback or onboarding
+  }
+  
   if (profile?.role === 'business_owner') redirect('/biz/dashboard')
   redirect('/discover')
 }

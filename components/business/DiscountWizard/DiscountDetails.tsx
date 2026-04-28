@@ -7,6 +7,7 @@ interface DetailsData {
   title: string
   description: string
   image_url: string
+  points_cost: number
 }
 
 interface Props {
@@ -16,9 +17,10 @@ interface Props {
 }
 
 export function DiscountDetails({ initial, onNext, onBack }: Props) {
-  const [title, setTitle] = useState(initial.title)
+  const [title, setTitle]         = useState(initial.title)
   const [description, setDescription] = useState(initial.description)
-  const [imageUrl, setImageUrl] = useState(initial.image_url)
+  const [imageUrl, setImageUrl]   = useState(initial.image_url)
+  const [pointsCost, setPointsCost] = useState(initial.points_cost)
 
   const inputClass =
     'w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm text-foreground placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary'
@@ -49,6 +51,23 @@ export function DiscountDetails({ initial, onNext, onBack }: Props) {
 
         <div>
           <label className="block text-sm font-semibold text-foreground mb-1.5">
+            Points to unlock <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={pointsCost}
+            onChange={e => setPointsCost(Math.max(1, parseInt(e.target.value) || 1))}
+            className={inputClass}
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            How many points a customer must spend to unlock this discount.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-foreground mb-1.5">
             Image URL{' '}
             <span className="text-gray-400 font-normal">(optional)</span>
           </label>
@@ -59,9 +78,6 @@ export function DiscountDetails({ initial, onNext, onBack }: Props) {
             placeholder="https://…"
             className={inputClass}
           />
-          <p className="text-xs text-gray-400 mt-1">
-            Link to a photo — proof of damaged item, promo visual, etc.
-          </p>
         </div>
 
         <div>
@@ -72,7 +88,7 @@ export function DiscountDetails({ initial, onNext, onBack }: Props) {
           <textarea
             value={description}
             onChange={e => setDescription(e.target.value)}
-            placeholder="e.g. Customer received wrong order · End of day promo"
+            placeholder="e.g. End of day promo · Customer loyalty reward"
             rows={3}
             className={`${inputClass} resize-none`}
           />
@@ -85,9 +101,10 @@ export function DiscountDetails({ initial, onNext, onBack }: Props) {
             title: title.trim(),
             description: description.trim(),
             image_url: imageUrl.trim(),
+            points_cost: pointsCost,
           })
         }
-        disabled={title.trim().length === 0}
+        disabled={title.trim().length === 0 || pointsCost < 1}
         className="w-full bg-primary text-white font-semibold py-3 rounded-xl disabled:opacity-40 transition-opacity"
       >
         Next

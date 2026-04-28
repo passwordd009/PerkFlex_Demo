@@ -1,61 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Tag, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Pencil, Package, Tag } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
-import { MenuItemForm } from '@/components/business/MenuItemForm'
 import { InventoryItemForm } from '@/components/business/InventoryItemForm'
-import { DiscountItemForm } from '@/components/business/DiscountItemForm'
 import { formatCurrency } from '@/lib/utils'
-import { toast } from 'sonner'
-import type { MenuItem, InventoryItem, Discount } from '@/types'
-
-const POINTS_PER_DOLLAR = 100
-
-function calcPointsCost(price: number, discountPct: number) {
-  return Math.round(price * (discountPct / 100) * POINTS_PER_DOLLAR)
-}
-
-type Tab = 'menu' | 'inventory' | 'discounts'
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'menu', label: 'Menu Items' },
-  { id: 'inventory', label: 'Inventory' },
-  { id: 'discounts', label: 'Discounts' },
-]
-
-function Thumb({ url, alt }: { url: string | null; alt: string }) {
-  if (!url) return null
-  return <img src={url} alt={alt} className="h-12 w-12 rounded-xl object-cover shrink-0" />
-}
+import Link from 'next/link'
+import type { InventoryItem, Discount } from '@/types'
 
 export default function MenuManagementPage() {
   const queryClient = useQueryClient()
-  const [tab, setTab] = useState<Tab>('menu')
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
 
-  // Menu item add/edit state
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
-  const [showForm, setShowForm] = useState(false)
-
-  // Per-item discount dialog state (your feature)
-  const [discountItem, setDiscountItem] = useState<MenuItem | null>(null)
-  const [discountPct, setDiscountPct] = useState(20)
-
-  // Inventory edit state
-  const [editingInventoryItem, setEditingInventoryItem] = useState<InventoryItem | null>(null)
-  const [showInventoryForm, setShowInventoryForm] = useState(false)
-
-  // Discount record edit state
-  const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null)
-  const [showDiscountForm, setShowDiscountForm] = useState(false)
-
-  // Fetch business id separately so it can be used in query keys
   const { data: businessId } = useQuery({
     queryKey: ['my-business-id'],
     queryFn: async () => {
@@ -71,22 +30,7 @@ export default function MenuManagementPage() {
     },
   })
 
-  const { data: items = [], isLoading } = useQuery({
-    queryKey: ['biz-menu', businessId],
-    enabled: !!businessId,
-    queryFn: async () => {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('menu_items')
-        .select('*')
-        .eq('business_id', businessId!)
-        .order('category')
-        .order('name')
-      return (data ?? []) as MenuItem[]
-    },
-  })
-
-  const { data: inventoryItems = [], isLoading: loadingInventory } = useQuery({
+  const { data: inventoryItems = [], isLoading } = useQuery({
     queryKey: ['biz-inventory', businessId],
     enabled: !!businessId,
     queryFn: async () => {
@@ -95,12 +39,21 @@ export default function MenuManagementPage() {
         .from('inventory')
         .select('*')
         .eq('business_id', businessId!)
+        .order('category')
         .order('name')
-      return (data ?? []) as InventoryItem[]
+      const rows = (data ?? []) as InventoryItem[]
+      // Deduplicate by name, keeping the most recent row
+      const seen = new Set<string>()
+      return rows.filter(item => {
+        const key = item.name.toLowerCase().trim()
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
     },
   })
 
-  const { data: discounts = [], isLoading: loadingDiscounts } = useQuery({
+  const { data: discounts = [] } = useQuery({
     queryKey: ['biz-discounts', businessId],
     enabled: !!businessId,
     queryFn: async () => {
@@ -109,409 +62,147 @@ export default function MenuManagementPage() {
         .from('discounts')
         .select('*')
         .eq('business_id', businessId!)
-        .order('created_at', { ascending: false })
       return (data ?? []) as Discount[]
     },
   })
 
-  const { mutate: toggleAvailability } = useMutation({
-    mutationFn: async ({ id, is_available }: { id: string; is_available: boolean }) => {
-      const supabase = createClient()
-      const { error } = await supabase.from('menu_items').update({ is_available }).eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['biz-menu', businessId] }),
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  const { mutate: deleteItem } = useMutation({
-    mutationFn: async (id: string) => {
-      const supabase = createClient()
-      const { error } = await supabase.from('menu_items').delete().eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['biz-menu', businessId] })
-      toast.success('Item deleted')
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  const { mutate: setDiscount, isPending: settingDiscount } = useMutation({
-    mutationFn: async ({ item, pct }: { item: MenuItem; pct: number }) => {
-      const supabase = createClient()
-
-      const { error: itemError } = await supabase
-        .from('menu_items')
-        .update({ discount_pct: pct })
-        .eq('id', item.id)
-      if (itemError) throw itemError
-
-      // Deactivate any prior discount rewards for this item
-      await supabase
-        .from('rewards')
-        .update({ is_active: false })
-        .eq('menu_item_id', item.id)
-
-      const pointsCost = calcPointsCost(item.price, pct)
-      const { error: rewardError } = await supabase.from('rewards').insert({
-        business_id: businessId,
-        menu_item_id: item.id,
-        name: `${pct}% off ${item.name}`,
-        description: `Get ${item.name} at ${pct}% off`,
-        discount_type: 'percentage',
-        discount_amount: pct,
-        points_cost: pointsCost,
-        is_active: true,
-      })
-      if (rewardError) throw rewardError
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['biz-menu', businessId] })
-      toast.success('Discount reward created')
-      setDiscountItem(null)
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  const { mutate: removeDiscount } = useMutation({
-    mutationFn: async (item: MenuItem) => {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('menu_items')
-        .update({ discount_pct: null })
-        .eq('id', item.id)
-      if (error) throw error
-      await supabase.from('rewards').update({ is_active: false }).eq('menu_item_id', item.id)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['biz-menu', businessId] })
-      toast.success('Discount removed')
-      setDiscountItem(null)
-    },
-    onError: (e: Error) => toast.error(e.message),
-  })
-
-  function openDiscountDialog(item: MenuItem) {
-    setDiscountItem(item)
-    setDiscountPct(item.discount_pct ?? 20)
+  // Map inventoryItemId → first discount that includes it
+  const discountMap = new Map<string, Discount>()
+  for (const discount of discounts) {
+    for (const itemId of discount.item_ids) {
+      if (!discountMap.has(itemId)) discountMap.set(itemId, discount)
+    }
   }
 
-  const tabIsLoading =
-    tab === 'menu' ? isLoading :
-    tab === 'inventory' ? loadingInventory :
-    loadingDiscounts
+  // Group items by category, preserving order
+  const categories: [string, InventoryItem[]][] = []
+  const seen = new Map<string, InventoryItem[]>()
+  for (const item of inventoryItems) {
+    const cat = item.category || 'Other'
+    if (!seen.has(cat)) {
+      const group: InventoryItem[] = []
+      seen.set(cat, group)
+      categories.push([cat, group])
+    }
+    seen.get(cat)!.push(item)
+  }
 
   return (
     <div className="px-4 pt-12 pb-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-5">
         <h1 className="text-2xl font-black text-foreground">Menu</h1>
-        {tab === 'menu' && (
-          <Button
-            size="sm"
-            onClick={() => { setEditingItem(null); setShowForm(true) }}
-            disabled={!businessId}
-          >
-            <Plus className="h-4 w-4 mr-1" /> Add Item
-          </Button>
-        )}
+        <p className="text-xs text-gray-400 mt-0.5">Customer preview — inventory + active discounts</p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1">
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-              tab === t.id ? 'bg-white text-foreground shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
+      {isLoading ? (
+        <div className="grid grid-cols-2 gap-3">
+          {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-44 rounded-2xl" />)}
+        </div>
+      ) : inventoryItems.length === 0 ? (
+        <div className="text-center py-20 text-gray-400">
+          <Package className="h-10 w-10 mx-auto mb-3 text-gray-200" />
+          <p className="text-sm font-medium text-gray-500">No items in your store yet</p>
+          <p className="text-xs mt-1 mb-5">Upload inventory to populate your menu</p>
+          <Link
+            href="/biz/inventory"
+            className="text-sm font-semibold text-primary underline underline-offset-2"
           >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tabIsLoading ? (
-        <div className="space-y-2">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 w-full" />)}
+            Go to Inventory →
+          </Link>
         </div>
       ) : (
-        <>
-          {/* ── Menu Items ── */}
-          {tab === 'menu' && (
-            items.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-gray-400 text-sm mb-4">Your menu is empty — upload inventory or add items manually</p>
-                <Button onClick={() => { setEditingItem(null); setShowForm(true) }}>
-                  <Plus className="h-4 w-4 mr-2" /> Add First Item
-                </Button>
-              </div>
-            ) : (
-              <AnimatePresence>
-                <div className="space-y-2">
-                  {items.map(item => (
-                    <motion.div
+        <div className="space-y-7">
+          {categories.map(([category, items]) => (
+            <div key={category}>
+              <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">
+                {category}
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                {items.map(item => {
+                  const discount = discountMap.get(item.id)
+                  const originalPrice = Number(item.price)
+                  const discountedPrice = discount
+                    ? originalPrice * (1 - discount.discount_percentage / 100)
+                    : null
+
+                  return (
+                    <div
                       key={item.id}
-                      layout
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="bg-white rounded-2xl p-3 border border-gray-100 shadow-sm"
+                      className="relative bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
                     >
-                      <div className="flex items-center gap-3">
-                        <Thumb url={item.image_url} alt={item.name} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-semibold text-sm">{item.name}</p>
-                            {item.category && (
-                              <Badge variant="outline" className="text-[10px] py-0">{item.category}</Badge>
-                            )}
-                            {item.discount_pct && (
-                              <Badge className="text-[10px] py-0 bg-secondary text-white border-0">
-                                {item.discount_pct}% off reward
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-xs text-gray-500">{formatCurrency(item.price)}</p>
-                            {item.discount_pct && (
-                              <p className="text-xs text-secondary font-medium">
-                                → {formatCurrency(item.price * (1 - item.discount_pct / 100))} discounted
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => openDiscountDialog(item)}
-                            className={`p-1 transition-colors ${item.discount_pct ? 'text-secondary' : 'text-gray-400 hover:text-secondary'}`}
-                            title="Set discount"
-                          >
-                            <Tag className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => toggleAvailability({ id: item.id, is_available: !item.is_available })}
-                            className={item.is_available ? 'text-green-500' : 'text-gray-300'}
-                          >
-                            {item.is_available ? <ToggleRight className="h-6 w-6" /> : <ToggleLeft className="h-6 w-6" />}
-                          </button>
-                          <button
-                            onClick={() => { setEditingItem(item); setShowForm(true) }}
-                            className="text-gray-400 hover:text-primary p-1"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => deleteItem(item.id)}
-                            className="text-gray-400 hover:text-red-500 p-1"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </AnimatePresence>
-            )
-          )}
+                      {/* Quick-edit button */}
+                      <button
+                        onClick={() => setEditingItem(item)}
+                        className="absolute top-2 right-2 z-10 bg-white/80 backdrop-blur-sm rounded-lg p-1 text-gray-400 hover:text-primary shadow-sm transition-colors"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
 
-          {/* ── Inventory ── */}
-          {tab === 'inventory' && (
-            inventoryItems.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">
-                <p className="text-sm">No inventory items yet.</p>
-                <p className="text-xs mt-1">Upload a CSV from the Inventory page.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {inventoryItems.map(item => (
-                  <div
-                    key={item.id}
-                    className="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm"
-                  >
-                    <Thumb url={item.image_url} alt={item.name} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm truncate">{item.name}</p>
-                        <Badge variant="outline" className="text-[10px] py-0 capitalize">{item.category}</Badge>
-                      </div>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-xs text-gray-500">{formatCurrency(Number(item.price))}</p>
-                        <span className="text-gray-300">·</span>
-                        <p className="text-xs text-gray-400">Qty {item.quantity}</p>
+                      {/* Photo */}
+                      {item.image_url ? (
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          className="w-full h-28 object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-28 bg-gray-50 flex items-center justify-center">
+                          <Package className="h-8 w-8 text-gray-200" />
+                        </div>
+                      )}
+
+                      <div className="p-3">
+                        <p className="text-sm font-semibold text-foreground leading-tight">{item.name}</p>
+
+                        {/* Discount badge */}
+                        {discount && (
+                          <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-md">
+                            <Tag className="h-2.5 w-2.5" />
+                            {discount.discount_percentage}% off
+                          </span>
+                        )}
+
+                        {/* Price */}
+                        <div className="mt-1.5">
+                          {discountedPrice !== null ? (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs text-gray-400 line-through">
+                                {formatCurrency(originalPrice)}
+                              </span>
+                              <span className="text-sm font-bold text-primary">
+                                {formatCurrency(discountedPrice)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-sm font-bold text-foreground">
+                              {formatCurrency(originalPrice)}
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-[10px] text-gray-400 mt-1">Qty: {item.quantity}</p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => { setEditingInventoryItem(item); setShowInventoryForm(true) }}
-                      className="text-gray-400 hover:text-primary p-1"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )
-          )}
-
-          {/* ── Discounts ── */}
-          {tab === 'discounts' && (
-            discounts.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">
-                <p className="text-sm">No discounts yet.</p>
-                <p className="text-xs mt-1">Create one from the Discounts page.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {discounts.map(discount => (
-                  <div
-                    key={discount.id}
-                    className="bg-white rounded-2xl p-3 border border-gray-100 flex items-center gap-3 shadow-sm"
-                  >
-                    <Thumb url={discount.image_url} alt={discount.title} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold text-sm truncate">{discount.title}</p>
-                        <Badge className="text-[10px] py-0 bg-red-50 text-red-500 border border-red-100 shadow-none">
-                          {discount.discount_percentage}% off
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        {discount.item_ids.length} item{discount.item_ids.length !== 1 ? 's' : ''}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => { setEditingDiscount(discount); setShowDiscountForm(true) }}
-                      className="text-gray-400 hover:text-primary p-1"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )
-          )}
-        </>
-      )}
-
-      {/* ── Add / Edit menu item ── */}
-      <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="mx-4">
-          <DialogHeader>
-            <DialogTitle>{editingItem ? 'Edit Menu Item' : 'Add Menu Item'}</DialogTitle>
-          </DialogHeader>
-          {businessId && (
-            <MenuItemForm
-              businessId={businessId}
-              item={editingItem ?? undefined}
-              onDone={() => setShowForm(false)}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Per-item discount / reward dialog ── */}
-      <Dialog open={!!discountItem} onOpenChange={open => { if (!open) setDiscountItem(null) }}>
-        <DialogContent className="mx-4">
-          <DialogHeader>
-            <DialogTitle>Set Discount Reward</DialogTitle>
-          </DialogHeader>
-          {discountItem && (
-            <div className="space-y-5">
-              <div className="bg-gray-50 rounded-xl p-3">
-                <p className="font-semibold text-sm">{discountItem.name}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Original price: {formatCurrency(discountItem.price)}</p>
-              </div>
-
-              <div>
-                <div className="flex justify-between mb-2">
-                  <label className="text-sm font-medium">Discount</label>
-                  <span className="text-sm font-bold text-secondary">{discountPct}% off</span>
-                </div>
-                <input
-                  type="range"
-                  min={10}
-                  max={100}
-                  step={5}
-                  value={discountPct}
-                  onChange={e => setDiscountPct(Number(e.target.value))}
-                  className="w-full accent-secondary"
-                />
-                <div className="flex justify-between text-[10px] text-gray-400 mt-1">
-                  <span>10%</span>
-                  <span>100%</span>
-                </div>
-              </div>
-
-              <div className="bg-secondary/5 rounded-xl p-3 space-y-1.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Discounted price</span>
-                  <span className="font-semibold">{formatCurrency(discountItem.price * (1 - discountPct / 100))}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Points cost for customers</span>
-                  <span className="font-semibold text-secondary">{calcPointsCost(discountItem.price, discountPct).toLocaleString()} pts</span>
-                </div>
-                <p className="text-[10px] text-gray-400 pt-1">
-                  Customers earn 10 pts/$1 spent · 100 pts = $1 off
-                </p>
-              </div>
-
-              <div className="flex gap-2">
-                {discountItem.discount_pct && (
-                  <Button
-                    variant="outline"
-                    className="flex-1 text-red-500 border-red-200 hover:bg-red-50"
-                    onClick={() => removeDiscount(discountItem)}
-                  >
-                    <X className="h-4 w-4 mr-1" /> Remove
-                  </Button>
-                )}
-                <Button
-                  className="flex-1"
-                  onClick={() => setDiscount({ item: discountItem, pct: discountPct })}
-                  disabled={settingDiscount}
-                >
-                  {settingDiscount ? 'Saving…' : 'Save Discount'}
-                </Button>
+                  )
+                })}
               </div>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          ))}
+        </div>
+      )}
 
-      {/* ── Inventory item edit ── */}
-      <Dialog open={showInventoryForm} onOpenChange={open => { if (!open) setShowInventoryForm(false) }}>
+      {/* Edit item dialog */}
+      <Dialog open={!!editingItem} onOpenChange={open => { if (!open) setEditingItem(null) }}>
         <DialogContent className="mx-4">
           <DialogHeader>
-            <DialogTitle>Edit Inventory Item</DialogTitle>
+            <DialogTitle>Edit Item</DialogTitle>
           </DialogHeader>
-          {editingInventoryItem && (
+          {editingItem && (
             <InventoryItemForm
-              item={editingInventoryItem}
+              item={editingItem}
               onDone={() => {
-                setShowInventoryForm(false)
+                setEditingItem(null)
                 queryClient.invalidateQueries({ queryKey: ['biz-inventory', businessId] })
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Discount record edit ── */}
-      <Dialog open={showDiscountForm} onOpenChange={open => { if (!open) setShowDiscountForm(false) }}>
-        <DialogContent className="mx-4">
-          <DialogHeader>
-            <DialogTitle>Edit Discount</DialogTitle>
-          </DialogHeader>
-          {editingDiscount && (
-            <DiscountItemForm
-              discount={editingDiscount}
-              onDone={() => {
-                setShowDiscountForm(false)
-                queryClient.invalidateQueries({ queryKey: ['biz-discounts', businessId] })
               }}
             />
           )}
