@@ -8,8 +8,17 @@ const supabase = createClient(
 const POINTS_RATE = 0.05   // 5% of purchase
 const POINTS_CAP  = 20     // max 20 points per transaction
 
+// PR = TIV × p / PPV
+// 1 point = $0.01, so 100 points = $1
+export const PRICE_PER_POINT = 0.01
+
 export function calcPointsEarned(total: number): number {
   return Math.min(Math.floor(total * POINTS_RATE), POINTS_CAP)
+}
+
+export function calcDiscountPointsCost(avgItemPrice: number, discountPercentage: number): number {
+  const pr = (avgItemPrice * (discountPercentage / 100)) / PRICE_PER_POINT
+  return Math.max(1, Math.round(pr))
 }
 
 /**

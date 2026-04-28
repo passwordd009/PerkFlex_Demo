@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { createClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import type { AuthenticatedRequest } from '../middleware/auth'
+import { calcDiscountPointsCost } from '../services/points.service'
 
 const router = Router()
 const supabase = createClient(
@@ -14,7 +15,6 @@ const DiscountSchema = z.object({
   description: z.string().optional(),
   image_url: z.string().optional(),
   discount_percentage: z.number().int().min(1, 'Minimum 1%').max(100, 'Maximum 100%'),
-  points_cost: z.number().int().min(1, 'Points cost must be at least 1'),
   item_ids: z.array(z.string().uuid()).min(1, 'At least one item must be selected'),
 })
 
@@ -57,15 +57,27 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
     if (bizError) { res.status(500).json({ message: bizError.message }); return }
     if (!business) { res.status(403).json({ message: 'No business found for this account' }); return }
 
+    // Look up item prices to calculate points_cost via PR = TIV × p / PPV
+    const { data: invItems } = await supabase
+      .from('inventory')
+      .select('price')
+      .in('id', parsed.data.item_ids)
+
+    const prices = (invItems ?? []).map(i => Number(i.price))
+    const avgPrice = prices.length > 0
+      ? prices.reduce((sum, p) => sum + p, 0) / prices.length
+      : 0
+    const points_cost = calcDiscountPointsCost(avgPrice, parsed.data.discount_percentage)
+
     const { data: discount, error: insertError } = await supabase
       .from('discounts')
-      .insert({ ...parsed.data, business_id: business.id })
+      .insert({ ...parsed.data, business_id: business.id, points_cost })
       .select('id')
       .single()
 
     if (insertError) { res.status(500).json({ message: insertError.message }); return }
 
-    res.status(201).json({ id: discount.id })
+    res.status(201).json({ id: discount.id, points_cost })
   } catch (e: any) {
     res.status(500).json({ message: e.message || 'Internal server error' })
   }
