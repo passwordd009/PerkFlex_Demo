@@ -1,9 +1,10 @@
 'use client'
 
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Star } from 'lucide-react'
 import type { InventoryItem } from '@/types'
 
-const PRESETS = [10, 20, 25, 30, 50, 75, 100]
+const PRESETS = [5, 10, 15, 20, 25, 30, 50]
+const PPV = 0.01 // $0.01 per point — mirror of server constant
 
 interface Props {
   items: InventoryItem[]
@@ -22,13 +23,17 @@ export function DiscountPreview({
   onBack,
   isApplying,
 }: Props) {
-  const subtotal = items.reduce((sum, item) => sum + Number(item.price), 0)
-  const discountAmount = subtotal * (percentage / 100)
-  const newTotal = subtotal - discountAmount
+  const avgPrice = items.length > 0
+    ? items.reduce((sum, i) => sum + Number(i.price), 0) / items.length
+    : 0
+
+  // PR = TIV × p / PPV
+  const pointsCost = Math.max(1, Math.round((avgPrice * (percentage / 100)) / PPV))
+  const pointsValue = pointsCost * PPV // $ value customer spends in points
 
   function handleInput(val: string) {
     const n = parseInt(val, 10)
-    if (!isNaN(n)) onPercentageChange(Math.min(100, Math.max(10, n)))
+    if (!isNaN(n)) onPercentageChange(Math.min(100, Math.max(1, n)))
   }
 
   return (
@@ -62,19 +67,38 @@ export function DiscountPreview({
         <div className="flex items-center gap-2">
           <input
             type="number"
-            min={10}
+            min={1}
             max={100}
             value={percentage}
             onChange={e => handleInput(e.target.value)}
             className="w-24 rounded-xl border border-gray-200 px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
           />
-          <span className="text-sm text-gray-500">% (10–100)</span>
+          <span className="text-sm text-gray-500">%  (1–100)</span>
         </div>
+      </div>
+
+      {/* Points cost formula breakdown */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-2">
+        <div className="flex items-center gap-2 mb-1">
+          <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
+          <p className="text-sm font-bold text-amber-800">Points to unlock</p>
+        </div>
+        <div className="text-xs text-amber-700 space-y-0.5">
+          <p>TIV  =  ${avgPrice.toFixed(2)}  (avg item value)</p>
+          <p>p    =  {percentage}%  (discount rate)</p>
+          <p>PPV  =  ${PPV.toFixed(2)}  (1 point = {PPV * 100}¢)</p>
+          <p className="border-t border-amber-200 pt-1 font-semibold">
+            PR = ${avgPrice.toFixed(2)} × {percentage / 100} ÷ ${PPV.toFixed(2)} = <span className="text-amber-900">{pointsCost} pts</span>
+          </p>
+        </div>
+        <p className="text-xs text-amber-600 mt-1">
+          You give up ${(avgPrice * percentage / 100).toFixed(2)} per item · customer spends ${pointsValue.toFixed(2)} in points
+        </p>
       </div>
 
       {/* Per-item preview */}
       <div>
-        <p className="text-sm font-semibold text-foreground mb-3">Preview</p>
+        <p className="text-sm font-semibold text-foreground mb-3">Item Preview</p>
         <div className="rounded-xl border border-gray-100 overflow-hidden">
           {items.map((item, i) => {
             const original = Number(item.price)
@@ -98,22 +122,6 @@ export function DiscountPreview({
         </div>
       </div>
 
-      {/* Totals summary */}
-      <div className="bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
-        <div className="flex justify-between text-gray-600">
-          <span>Subtotal</span>
-          <span>${subtotal.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between text-red-500">
-          <span>Discount ({percentage}%)</span>
-          <span>-${discountAmount.toFixed(2)}</span>
-        </div>
-        <div className="flex justify-between font-bold text-foreground border-t border-gray-200 pt-2">
-          <span>New Total</span>
-          <span>${newTotal.toFixed(2)}</span>
-        </div>
-      </div>
-
       <button
         onClick={onApply}
         disabled={isApplying}
@@ -125,7 +133,7 @@ export function DiscountPreview({
             Applying…
           </>
         ) : (
-          'Apply Discount'
+          `Apply Discount (${pointsCost} pts to unlock)`
         )}
       </button>
     </div>

@@ -3,11 +3,10 @@
 import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 
-interface DetailsData {
+export interface DetailsData {
   title: string
   description: string
   image_url: string
-  points_cost: number
 }
 
 interface Props {
@@ -17,10 +16,9 @@ interface Props {
 }
 
 export function DiscountDetails({ initial, onNext, onBack }: Props) {
-  const [title, setTitle]         = useState(initial.title)
+  const [title, setTitle]             = useState(initial.title)
   const [description, setDescription] = useState(initial.description)
-  const [imageUrl, setImageUrl]   = useState(initial.image_url)
-  const [pointsCost, setPointsCost] = useState(initial.points_cost)
+  const [imageUrl, setImageUrl]       = useState(initial.image_url)
 
   const inputClass =
     'w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm text-foreground placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary'
@@ -47,23 +45,6 @@ export function DiscountDetails({ initial, onNext, onBack }: Props) {
             placeholder="e.g. Customer Loyalty Discount"
             className={inputClass}
           />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-foreground mb-1.5">
-            Points to unlock <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={100}
-            value={pointsCost}
-            onChange={e => setPointsCost(Math.max(1, parseInt(e.target.value) || 1))}
-            className={inputClass}
-          />
-          <p className="text-xs text-gray-400 mt-1">
-            How many points a customer must spend to unlock this discount.
-          </p>
         </div>
 
         <div>
@@ -96,15 +77,8 @@ export function DiscountDetails({ initial, onNext, onBack }: Props) {
       </div>
 
       <button
-        onClick={() =>
-          onNext({
-            title: title.trim(),
-            description: description.trim(),
-            image_url: imageUrl.trim(),
-            points_cost: pointsCost,
-          })
-        }
-        disabled={title.trim().length === 0 || pointsCost < 1}
+        onClick={() => onNext({ title: title.trim(), description: description.trim(), image_url: imageUrl.trim() })}
+        disabled={title.trim().length === 0}
         className="w-full bg-primary text-white font-semibold py-3 rounded-xl disabled:opacity-40 transition-opacity"
       >
         Next

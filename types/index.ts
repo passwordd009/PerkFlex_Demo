@@ -178,7 +178,6 @@ export interface CreateDiscountRequest {
   description?: string
   image_url?: string
   discount_percentage: number
-  points_cost: number
   item_ids: string[]
 }
 
