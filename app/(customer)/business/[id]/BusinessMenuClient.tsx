@@ -121,12 +121,12 @@ export function BusinessMenuClient({ business, inventoryItems, rewards }: Props)
           rewards.length === 0 ? (
             <p className="text-center text-gray-400 text-sm py-12">No rewards available</p>
           ) : (
-            <div className="space-y-3 pb-6">
+            <div className="grid grid-cols-2 gap-3 pb-6">
               {rewards.map((reward, i) => (
                 <motion.div
                   key={reward.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
                 >
                   <RewardCard reward={reward} pointsBalance={pointsBalance} />
@@ -138,12 +138,12 @@ export function BusinessMenuClient({ business, inventoryItems, rewards }: Props)
           currentItems.length === 0 ? (
             <p className="text-center text-gray-400 text-sm py-12">No items available</p>
           ) : (
-            <div className="space-y-2 pb-6">
+            <div className="grid grid-cols-2 gap-3 pb-6">
               {currentItems.map((item, i) => (
                 <motion.div
                   key={item.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
                 >
                   <MenuCard item={item} business={business} />

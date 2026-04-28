@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { BusinessMenuClient } from './BusinessMenuClient'
 import type { Business, InventoryItem, Reward } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 interface Props {
   params: Promise<{ id: string }>
 }
