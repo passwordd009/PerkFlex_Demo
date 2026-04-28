@@ -57,9 +57,11 @@ export function CartSheet({ businessId }: CartSheetProps) {
 
   const cartItemIds = new Set(items.map(i => i.item.id))
 
-  // Only show discounts that apply to at least one item in the cart
+  // Combo discounts require ALL items in cart; single-item discounts need just one match
   const applicableDiscounts = discounts.filter(d =>
-    d.item_ids.some(id => cartItemIds.has(id))
+    d.is_combo
+      ? d.item_ids.every(id => cartItemIds.has(id))
+      : d.item_ids.some(id => cartItemIds.has(id))
   )
 
   const appliedDiscount = applicableDiscounts.find(d => d.id === appliedDiscountId) ?? null
@@ -177,8 +179,13 @@ export function CartSheet({ businessId }: CartSheetProps) {
                           }`}
                         >
                           <div>
-                            <p className="text-sm font-semibold text-foreground">{d.title}</p>
-                            <p className="text-xs text-gray-500">{d.discount_percentage}% off selected items</p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-semibold text-foreground">{d.title}</p>
+                              {d.is_combo && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Combo</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500">{d.discount_percentage}% off {d.is_combo ? 'all combo items' : 'selected items'}</p>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {isApplied ? (

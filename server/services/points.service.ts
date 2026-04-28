@@ -16,8 +16,8 @@ export function calcPointsEarned(total: number): number {
   return Math.min(Math.floor(total * POINTS_RATE), POINTS_CAP)
 }
 
-export function calcDiscountPointsCost(avgItemPrice: number, discountPercentage: number): number {
-  const pr = (avgItemPrice * (discountPercentage / 100)) / PRICE_PER_POINT
+export function calcDiscountPointsCost(totalItemValue: number, discountPercentage: number): number {
+  const pr = (totalItemValue * (discountPercentage / 100)) / PRICE_PER_POINT
   return Math.max(1, Math.round(pr))
 }
 
