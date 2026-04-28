@@ -63,7 +63,7 @@ export default function RewardsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
             >
-              <RewardCard reward={reward} userPoints={userPoints} />
+              <RewardCard reward={reward} pointsBalance={userPoints} />
             </motion.div>
           ))}
         </div>

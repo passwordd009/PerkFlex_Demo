@@ -87,22 +87,23 @@ export interface PointsLedgerEntry {
 
 // ─── Rewards ─────────────────────────────────────────────────────────────────
 
-export type DiscountType = 'fixed' | 'percentage'
-
 export interface Reward {
   id: string
   business_id: string
-  menu_item_id: string | null
   name: string
   description: string | null
   points_cost: number
-  discount_amount: number | null
-  discount_type: DiscountType | null
   is_active: boolean
   expires_at: string | null
   created_at: string
   // joined
   business?: Business
+}
+
+export interface CreateRewardRequest {
+  name: string
+  description?: string
+  points_cost: number
 }
 
 export interface RewardRedemption {
@@ -127,7 +128,6 @@ export interface Cart {
   businessId: string | null
   districtId: string | null
   appliedRewardId: string | null
-  appliedDiscountId: string | null
 }
 
 // ─── Inventory ───────────────────────────────────────────────────────────────

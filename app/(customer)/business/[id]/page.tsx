@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { BusinessMenuClient } from './BusinessMenuClient'
-import type { Business, InventoryItem, Discount } from '@/types'
+import type { Business, InventoryItem, Reward } from '@/types'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -11,7 +11,7 @@ export default async function BusinessPage({ params }: Props) {
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: business }, { data: inventoryData }, { data: discountData }] = await Promise.all([
+  const [{ data: business }, { data: inventoryData }, { data: rewardsData }] = await Promise.all([
     supabase
       .from('businesses')
       .select('*, districts(id, name)')
@@ -25,9 +25,11 @@ export default async function BusinessPage({ params }: Props) {
       .order('category')
       .order('name'),
     supabase
-      .from('discounts')
+      .from('rewards')
       .select('*')
-      .eq('business_id', id),
+      .eq('business_id', id)
+      .eq('is_active', true)
+      .order('points_cost'),
   ])
 
   if (!business) notFound()
@@ -45,7 +47,7 @@ export default async function BusinessPage({ params }: Props) {
     <BusinessMenuClient
       business={business as Business}
       inventoryItems={inventoryItems}
-      discounts={(discountData ?? []) as Discount[]}
+      rewards={(rewardsData ?? []) as Reward[]}
     />
   )
 }

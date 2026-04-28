@@ -1,30 +1,24 @@
 'use client'
 
-import { Plus, Minus, Star } from 'lucide-react'
+import { Plus, Minus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils'
 import { useCartStore } from '@/lib/store'
-import type { InventoryItem, Discount, Business } from '@/types'
+import type { InventoryItem, Business } from '@/types'
 
 interface MenuCardProps {
   item: InventoryItem
-  discount: Discount | null
   business: Business
 }
 
-export function MenuCard({ item, discount, business }: MenuCardProps) {
+export function MenuCard({ item, business }: MenuCardProps) {
   const { items, addItem, updateQuantity } = useCartStore()
 
   const cartItem = items.find(i => i.item.id === item.id)
   const qty = cartItem?.quantity ?? 0
   const isAvailable = item.quantity > 0
-
-  // Show potential discounted price but label it as points-required
-  const discountedPrice = discount
-    ? item.price * (1 - discount.discount_percentage / 100)
-    : null
 
   const handleAdd = () => addItem(item, business.id, business.district_id)
   const handleDecrement = () => updateQuantity(item.id, qty - 1)
@@ -41,24 +35,8 @@ export function MenuCard({ item, discount, business }: MenuCardProps) {
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-foreground text-sm leading-tight">{item.name}</p>
 
-            {discount && (
-              <span className="inline-flex items-center gap-0.5 mt-0.5 text-[10px] text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded-md">
-                <Star className="h-2.5 w-2.5 fill-amber-500 text-amber-500" />
-                {discount.points_cost} pts → {discount.discount_percentage}% off
-              </span>
-            )}
-
             <div className="flex items-center justify-between mt-2">
-              <div className="flex items-center gap-1.5">
-                {discountedPrice !== null ? (
-                  <>
-                    <span className="text-xs text-gray-400 line-through">{formatCurrency(item.price)}</span>
-                    <span className="font-bold text-amber-600">{formatCurrency(discountedPrice)}</span>
-                  </>
-                ) : (
-                  <span className="font-bold text-foreground">{formatCurrency(item.price)}</span>
-                )}
-              </div>
+              <span className="font-bold text-foreground">{formatCurrency(item.price)}</span>
 
               <AnimatePresence mode="wait">
                 {qty === 0 ? (
