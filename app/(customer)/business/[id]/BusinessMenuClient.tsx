@@ -5,22 +5,21 @@ import Link from 'next/link'
 import { ArrowLeft, MapPin } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { MenuCard } from '@/components/customer/MenuCard'
-import { RewardCard } from '@/components/customer/RewardCard'
+import { DiscountRewardCard } from '@/components/customer/DiscountRewardCard'
 import { CartSheet } from '@/components/customer/CartSheet'
 import { Badge } from '@/components/ui/badge'
 import { createClient } from '@/lib/supabase/client'
-import type { Business, InventoryItem, Reward } from '@/types'
+import type { Business, InventoryItem, Discount } from '@/types'
 
 interface Props {
   business: Business
   inventoryItems: InventoryItem[]
-  rewards: Reward[]
+  discounts: Discount[]
 }
 
-export function BusinessMenuClient({ business, inventoryItems, rewards }: Props) {
+export function BusinessMenuClient({ business, inventoryItems, discounts }: Props) {
   const categories = useMemo(() => {
-    const cats = Array.from(new Set(inventoryItems.map(i => i.category ?? 'Other')))
-    return cats
+    return Array.from(new Set(inventoryItems.map(i => i.category ?? 'Other')))
   }, [inventoryItems])
 
   const allTabs = useMemo(() => ['Rewards', ...categories], [categories])
@@ -118,18 +117,18 @@ export function BusinessMenuClient({ business, inventoryItems, rewards }: Props)
 
         {/* Tab content */}
         {selectedTab === 'Rewards' ? (
-          rewards.length === 0 ? (
+          discounts.length === 0 ? (
             <p className="text-center text-gray-400 text-sm py-12">No rewards available</p>
           ) : (
             <div className="grid grid-cols-2 gap-3 pb-6">
-              {rewards.map((reward, i) => (
+              {discounts.map((discount, i) => (
                 <motion.div
-                  key={reward.id}
+                  key={discount.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.05 }}
                 >
-                  <RewardCard reward={reward} pointsBalance={pointsBalance} />
+                  <DiscountRewardCard discount={discount} pointsBalance={pointsBalance} />
                 </motion.div>
               ))}
             </div>
