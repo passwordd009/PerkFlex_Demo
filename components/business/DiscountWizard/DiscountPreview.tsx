@@ -23,13 +23,11 @@ export function DiscountPreview({
   onBack,
   isApplying,
 }: Props) {
-  const avgPrice = items.length > 0
-    ? items.reduce((sum, i) => sum + Number(i.price), 0) / items.length
-    : 0
+  const totalItemValue = items.reduce((sum, i) => sum + Number(i.price), 0)
 
   // PR = TIV × p / PPV
-  const pointsCost = Math.max(1, Math.round((avgPrice * (percentage / 100)) / PPV))
-  const pointsValue = pointsCost * PPV // $ value customer spends in points
+  const pointsCost = Math.max(1, Math.round((totalItemValue * (percentage / 100)) / PPV))
+  const pointsValue = pointsCost * PPV
 
   function handleInput(val: string) {
     const n = parseInt(val, 10)
@@ -84,15 +82,15 @@ export function DiscountPreview({
           <p className="text-sm font-bold text-amber-800">Points to unlock</p>
         </div>
         <div className="text-xs text-amber-700 space-y-0.5">
-          <p>TIV  =  ${avgPrice.toFixed(2)}  (avg item value)</p>
+          <p>TIV  =  ${totalItemValue.toFixed(2)}  (total item value)</p>
           <p>p    =  {percentage}%  (discount rate)</p>
           <p>PPV  =  ${PPV.toFixed(2)}  (1 point = {PPV * 100}¢)</p>
           <p className="border-t border-amber-200 pt-1 font-semibold">
-            PR = ${avgPrice.toFixed(2)} × {percentage / 100} ÷ ${PPV.toFixed(2)} = <span className="text-amber-900">{pointsCost} pts</span>
+            PR = ${totalItemValue.toFixed(2)} × {percentage / 100} ÷ ${PPV.toFixed(2)} = <span className="text-amber-900">{pointsCost} pts</span>
           </p>
         </div>
         <p className="text-xs text-amber-600 mt-1">
-          You give up ${(avgPrice * percentage / 100).toFixed(2)} per item · customer spends ${pointsValue.toFixed(2)} in points
+          {items.length > 1 ? 'Combo deal' : 'Single item'} · customer spends ${pointsValue.toFixed(2)} in points
         </p>
       </div>
 

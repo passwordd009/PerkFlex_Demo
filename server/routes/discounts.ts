@@ -64,14 +64,13 @@ router.post('/', async (req: AuthenticatedRequest, res) => {
       .in('id', parsed.data.item_ids)
 
     const prices = (invItems ?? []).map(i => Number(i.price))
-    const avgPrice = prices.length > 0
-      ? prices.reduce((sum, p) => sum + p, 0) / prices.length
-      : 0
-    const points_cost = calcDiscountPointsCost(avgPrice, parsed.data.discount_percentage)
+    const totalItemValue = prices.reduce((sum, p) => sum + p, 0)
+    const points_cost = calcDiscountPointsCost(totalItemValue, parsed.data.discount_percentage)
+    const is_combo = parsed.data.item_ids.length > 1
 
     const { data: discount, error: insertError } = await supabase
       .from('discounts')
-      .insert({ ...parsed.data, business_id: business.id, points_cost })
+      .insert({ ...parsed.data, business_id: business.id, points_cost, is_combo })
       .select('id')
       .single()
 

@@ -170,6 +170,7 @@ export interface Discount {
   discount_percentage: number
   points_cost: number
   item_ids: string[]
+  is_combo: boolean
   created_at: string
 }
 
