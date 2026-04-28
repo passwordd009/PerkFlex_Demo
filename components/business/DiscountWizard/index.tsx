@@ -1,124 +1,127 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { CheckCircle2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { rewardsApi } from '@/lib/api'
-import type { CreateRewardRequest } from '@/types'
+import { inventoryApi, discountsApi } from '@/lib/api'
+import { ItemGrid } from './ItemGrid'
+import { DiscountDetails } from './DiscountDetails'
+import { DiscountPreview } from './DiscountPreview'
+import { DiscountSuccess } from './DiscountSuccess'
+import type { InventoryItem, CreateDiscountRequest } from '@/types'
 
-type Step = 'form' | 'done'
+type Step = 'select' | 'details' | 'preview' | 'done'
+
+interface DetailsData {
+  title: string
+  description: string
+  image_url: string
+}
 
 export function DiscountWizard() {
-  const [step, setStep] = useState<Step>('form')
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [pointsCost, setPointsCost] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [step, setStep] = useState<Step>('select')
+  const [items, setItems] = useState<InventoryItem[]>([])
+  const [isLoadingItems, setIsLoadingItems] = useState(true)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [details, setDetails] = useState<DetailsData>({ title: '', description: '', image_url: '' })
+  const [percentage, setPercentage] = useState(20)
+  const [isApplying, setIsApplying] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    const parsedPoints = parseInt(pointsCost, 10)
-    if (!name.trim()) {
-      toast.error('Name is required')
-      return
-    }
-    if (!pointsCost || isNaN(parsedPoints) || parsedPoints <= 0) {
-      toast.error('Points cost must be a number greater than 0')
-      return
-    }
+  useEffect(() => {
+    inventoryApi
+      .list()
+      .then(setItems)
+      .catch(() => toast.error('Failed to load inventory'))
+      .finally(() => setIsLoadingItems(false))
+  }, [])
 
-    setIsSubmitting(true)
-    const payload: CreateRewardRequest = {
-      name: name.trim(),
-      points_cost: parsedPoints,
-      ...(description.trim() && { description: description.trim() }),
+  const selectedItems = items.filter(item => selectedIds.has(item.id))
+
+  function toggleItem(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  async function handleApply() {
+    setIsApplying(true)
+    const payload: CreateDiscountRequest = {
+      title: details.title,
+      discount_percentage: percentage,
+      item_ids: Array.from(selectedIds),
+      ...(details.description && { description: details.description }),
+      ...(details.image_url && { image_url: details.image_url }),
     }
     try {
-      await rewardsApi.create(payload)
+      await discountsApi.create(payload)
       setStep('done')
     } catch (e: any) {
-      toast.error(e.message || 'Failed to create reward')
+      toast.error(e.message || 'Failed to create discount')
     } finally {
-      setIsSubmitting(false)
+      setIsApplying(false)
     }
   }
 
   function handleReset() {
-    setStep('form')
-    setName('')
-    setDescription('')
-    setPointsCost('')
+    setStep('select')
+    setSelectedIds(new Set())
+    setDetails({ title: '', description: '', image_url: '' })
+    setPercentage(20)
   }
 
-  if (step === 'done') {
+  if (isLoadingItems) {
     return (
-      <div className="flex flex-col items-center text-center py-12 space-y-4">
-        <div className="h-16 w-16 rounded-full bg-green-50 flex items-center justify-center">
-          <CheckCircle2 className="h-8 w-8 text-green-500" />
-        </div>
-        <div>
-          <h2 className="text-xl font-black text-foreground">Reward Created!</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            &ldquo;{name}&rdquo; is now available to customers.
-          </p>
-        </div>
-        <button
-          onClick={handleReset}
-          className="mt-4 bg-primary text-white font-semibold px-8 py-3 rounded-xl"
-        >
-          Create Another
-        </button>
+      <div className="flex items-center justify-center py-16">
+        <div className="h-6 w-6 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="text-center py-16 text-gray-400">
+        <p className="text-sm">No inventory items found.</p>
+        <p className="text-xs mt-1">Upload inventory first to create discounts.</p>
       </div>
     )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <div>
-        <label className="block text-sm font-semibold text-foreground mb-1.5">
-          Reward Name <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          placeholder="e.g. Free Drink"
-          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+    <>
+      {step === 'select' && (
+        <ItemGrid
+          items={items}
+          selectedIds={selectedIds}
+          onToggle={toggleItem}
+          onNext={() => setStep('details')}
         />
-      </div>
-
-      <div>
-        <label className="block text-sm font-semibold text-foreground mb-1.5">
-          Description <span className="text-gray-400 font-normal">(optional)</span>
-        </label>
-        <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          placeholder="e.g. One free drink of your choice"
-          rows={3}
-          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+      )}
+      {step === 'details' && (
+        <DiscountDetails
+          initial={details}
+          onNext={d => { setDetails(d); setStep('preview') }}
+          onBack={() => setStep('select')}
         />
-      </div>
-
-      <div>
-        <label className="block text-sm font-semibold text-foreground mb-1.5">
-          Points Cost <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="number"
-          value={pointsCost}
-          onChange={e => setPointsCost(e.target.value)}
-          placeholder="e.g. 500"
-          min={1}
-          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+      )}
+      {step === 'preview' && (
+        <DiscountPreview
+          items={selectedItems}
+          percentage={percentage}
+          onPercentageChange={setPercentage}
+          onApply={handleApply}
+          onBack={() => setStep('details')}
+          isApplying={isApplying}
         />
-        <p className="text-xs text-gray-400 mt-1">Customers need this many points to unlock the reward.</p>
-      </div>
-
-      <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
-        {isSubmitting ? 'Creating…' : 'Create Reward'}
-      </Button>
-    </form>
+      )}
+      {step === 'done' && (
+        <DiscountSuccess
+          title={details.title}
+          itemCount={selectedIds.size}
+          percentage={percentage}
+          onReset={handleReset}
+        />
+      )}
+    </>
   )
 }
