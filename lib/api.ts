@@ -3,6 +3,7 @@ import type {
   CreateOrderRequest, CreateOrderResponse, VerifyQRResponse,
   InventoryUploadItem, InventoryUploadResponse, InventoryItem,
   CreateDiscountRequest, CreateDiscountResponse, Discount,
+  CreateRewardRequest,
 } from '@/types'
 
 const API_BASE = process.env.NEXT_PUBLIC_EXPRESS_API_URL || 'http://localhost:3001'
@@ -76,6 +77,11 @@ export const rewardsApi = {
     apiFetch<{ rewards: import('@/types').Reward[] }>(
       businessId ? `/rewards?businessId=${businessId}` : '/rewards'
     ),
+  create: (data: CreateRewardRequest) =>
+    apiFetch<{ id: string }>('/rewards', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 }
 
 // Inventory

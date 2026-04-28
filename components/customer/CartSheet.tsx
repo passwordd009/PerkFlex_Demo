@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ShoppingCart, Trash2, Star, CheckCircle } from 'lucide-react'
+import { ShoppingCart, Trash2, Star } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -12,7 +12,6 @@ import { ordersApi } from '@/lib/api'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import type { Discount } from '@/types'
 
 interface CartSheetProps {
   businessId: string
@@ -21,23 +20,9 @@ interface CartSheetProps {
 export function CartSheet({ businessId }: CartSheetProps) {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
-  const { items, removeItem, total, clearCart, appliedDiscountId, applyDiscount, clearDiscount } = useCartStore()
+  const { items, removeItem, total, clearCart } = useCartStore()
   const cartTotal = total()
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0)
-
-  // Fetch discounts + customer points when cart is open
-  const { data: discounts = [] } = useQuery<Discount[]>({
-    queryKey: ['business-discounts-customer', businessId],
-    enabled: isOpen && itemCount > 0,
-    queryFn: async () => {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('discounts')
-        .select('*')
-        .eq('business_id', businessId)
-      return (data ?? []) as Discount[]
-    },
-  })
 
   const { data: pointsBalance = 0 } = useQuery<number>({
     queryKey: ['my-points'],
@@ -55,39 +40,11 @@ export function CartSheet({ businessId }: CartSheetProps) {
     },
   })
 
-  const cartItemIds = new Set(items.map(i => i.item.id))
-
-  // Combo discounts require ALL items in cart; single-item discounts need just one match
-  const applicableDiscounts = discounts.filter(d =>
-    d.is_combo
-      ? d.item_ids.every(id => cartItemIds.has(id))
-      : d.item_ids.some(id => cartItemIds.has(id))
-  )
-
-  const appliedDiscount = applicableDiscounts.find(d => d.id === appliedDiscountId) ?? null
-
-  // Calculate discount savings
-  const discountSavings = appliedDiscount
-    ? items
-        .filter(i => appliedDiscount.item_ids.includes(i.item.id))
-        .reduce((sum, i) => sum + i.item.price * i.quantity * (appliedDiscount.discount_percentage / 100), 0)
-    : 0
-
-  const finalTotal = Math.max(0, cartTotal - discountSavings)
-
-  // Clear applied discount if it no longer applies
-  useEffect(() => {
-    if (appliedDiscountId && !applicableDiscounts.find(d => d.id === appliedDiscountId)) {
-      clearDiscount()
-    }
-  }, [applicableDiscounts, appliedDiscountId, clearDiscount])
-
   const { mutate: placeOrder, isPending } = useMutation({
     mutationFn: () =>
       ordersApi.create({
         businessId,
         items: items.map(i => ({ inventoryItemId: i.item.id, quantity: i.quantity })),
-        discountId: appliedDiscountId ?? undefined,
       }),
     onSuccess: (data) => {
       clearCart()
@@ -111,7 +68,7 @@ export function CartSheet({ businessId }: CartSheetProps) {
         <ShoppingCart className="h-5 w-5" />
         <span>{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
         <Badge variant="accent" className="bg-white/20 text-white border-0">
-          {formatCurrency(finalTotal)}
+          {formatCurrency(cartTotal)}
         </Badge>
       </motion.button>
 
@@ -130,7 +87,7 @@ export function CartSheet({ businessId }: CartSheetProps) {
             >
               <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-4" />
 
-              {/* Points balance */}
+              {/* Header with points balance */}
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-foreground">Your Cart</h2>
                 <span className="flex items-center gap-1 text-sm font-semibold text-amber-600">
@@ -155,73 +112,15 @@ export function CartSheet({ businessId }: CartSheetProps) {
                 ))}
               </div>
 
-              {/* Available discounts */}
-              {applicableDiscounts.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">
-                    Unlock a discount
-                  </p>
-                  <div className="space-y-2">
-                    {applicableDiscounts.map(d => {
-                      const isApplied = appliedDiscountId === d.id
-                      const canAfford = pointsBalance >= d.points_cost
-                      return (
-                        <button
-                          key={d.id}
-                          onClick={() => isApplied ? clearDiscount() : applyDiscount(d.id)}
-                          disabled={!canAfford && !isApplied}
-                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border text-left transition-colors ${
-                            isApplied
-                              ? 'border-amber-400 bg-amber-50'
-                              : canAfford
-                              ? 'border-gray-200 hover:border-amber-300 hover:bg-amber-50/50'
-                              : 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
-                          }`}
-                        >
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-sm font-semibold text-foreground">{d.title}</p>
-                              {d.is_combo && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">Combo</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-500">{d.discount_percentage}% off {d.is_combo ? 'all combo items' : 'selected items'}</p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {isApplied ? (
-                              <CheckCircle className="h-5 w-5 text-amber-500" />
-                            ) : (
-                              <span className="flex items-center gap-0.5 text-xs font-bold text-amber-600">
-                                <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
-                                {d.points_cost} pts
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
               {/* Totals */}
               <div className="border-t border-gray-100 pt-3 mb-4 space-y-1">
                 <div className="flex justify-between text-sm text-gray-500">
                   <span>Subtotal</span>
                   <span>{formatCurrency(cartTotal)}</span>
                 </div>
-                {discountSavings > 0 && (
-                  <div className="flex justify-between text-sm text-amber-600 font-medium">
-                    <span className="flex items-center gap-1">
-                      <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
-                      {appliedDiscount?.title} ({appliedDiscount?.points_cost} pts)
-                    </span>
-                    <span>-{formatCurrency(discountSavings)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between font-bold text-base pt-1">
                   <span>Total</span>
-                  <span>{formatCurrency(finalTotal)}</span>
+                  <span>{formatCurrency(cartTotal)}</span>
                 </div>
                 <p className="text-xs text-gray-400">Pay in person when you pick up</p>
               </div>

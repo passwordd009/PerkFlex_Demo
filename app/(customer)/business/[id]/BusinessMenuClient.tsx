@@ -1,32 +1,49 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, MapPin } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { MenuCard } from '@/components/customer/MenuCard'
+import { RewardCard } from '@/components/customer/RewardCard'
 import { CartSheet } from '@/components/customer/CartSheet'
 import { Badge } from '@/components/ui/badge'
-import type { Business, InventoryItem, Discount } from '@/types'
+import { createClient } from '@/lib/supabase/client'
+import type { Business, InventoryItem, Reward } from '@/types'
 
 interface Props {
   business: Business
   inventoryItems: InventoryItem[]
-  discounts: Discount[]
+  rewards: Reward[]
 }
 
-export function BusinessMenuClient({ business, inventoryItems, discounts }: Props) {
-  const discountMap = useMemo(() => {
-    const map = new Map<string, Discount>()
-    for (const discount of discounts) {
-      for (const itemId of discount.item_ids) {
-        if (!map.has(itemId)) map.set(itemId, discount)
-      }
-    }
-    return map
-  }, [discounts])
+export function BusinessMenuClient({ business, inventoryItems, rewards }: Props) {
+  const categories = useMemo(() => {
+    const cats = Array.from(new Set(inventoryItems.map(i => i.category ?? 'Other')))
+    return cats
+  }, [inventoryItems])
 
-  const grouped = useMemo(() => {
+  const allTabs = useMemo(() => ['Rewards', ...categories], [categories])
+  const [selectedTab, setSelectedTab] = useState<string>(categories[0] ?? 'Rewards')
+
+  const [pointsBalance, setPointsBalance] = useState(0)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase
+        .from('profiles')
+        .select('points_balance')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setPointsBalance(data.points_balance)
+        })
+    })
+  }, [])
+
+  const groupedByCategory = useMemo(() => {
     const map = new Map<string, InventoryItem[]>()
     for (const item of inventoryItems) {
       const cat = item.category ?? 'Other'
@@ -34,6 +51,8 @@ export function BusinessMenuClient({ business, inventoryItems, discounts }: Prop
     }
     return map
   }, [inventoryItems])
+
+  const currentItems = groupedByCategory.get(selectedTab) ?? []
 
   return (
     <div>
@@ -80,33 +99,58 @@ export function BusinessMenuClient({ business, inventoryItems, discounts }: Prop
           )}
         </div>
 
-        {/* Menu */}
-        {grouped.size === 0 ? (
-          <p className="text-center text-gray-400 text-sm py-12">No items available</p>
+        {/* Category tab bar */}
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+          {allTabs.map(tab => (
+            <button
+              key={tab}
+              onClick={() => setSelectedTab(tab)}
+              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                selectedTab === tab
+                  ? 'bg-primary text-white'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        {selectedTab === 'Rewards' ? (
+          rewards.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-12">No rewards available</p>
+          ) : (
+            <div className="space-y-3 pb-6">
+              {rewards.map((reward, i) => (
+                <motion.div
+                  key={reward.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <RewardCard reward={reward} pointsBalance={pointsBalance} />
+                </motion.div>
+              ))}
+            </div>
+          )
         ) : (
-          <div className="space-y-6 pb-6">
-            {[...grouped.entries()].map(([category, items]) => (
-              <section key={category}>
-                <h2 className="font-bold text-foreground mb-3">{category}</h2>
-                <div className="space-y-2">
-                  {items.map((item, i) => (
-                    <motion.div
-                      key={item.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                    >
-                      <MenuCard
-                        item={item}
-                        discount={discountMap.get(item.id) ?? null}
-                        business={business}
-                      />
-                    </motion.div>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          currentItems.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-12">No items available</p>
+          ) : (
+            <div className="space-y-2 pb-6">
+              {currentItems.map((item, i) => (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                >
+                  <MenuCard item={item} business={business} />
+                </motion.div>
+              ))}
+            </div>
+          )
         )}
       </div>
 
