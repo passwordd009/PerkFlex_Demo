@@ -3,26 +3,27 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('ember', 'ember', true)
 ON CONFLICT (id) DO UPDATE SET public = true;
 
--- Allow authenticated users to upload (INSERT) to the ember bucket
-CREATE POLICY IF NOT EXISTS "Authenticated users can upload to ember"
+-- Storage policies for the ember bucket
+DROP POLICY IF EXISTS "Authenticated users can upload to ember" ON storage.objects;
+CREATE POLICY "Authenticated users can upload to ember"
   ON storage.objects FOR INSERT
   TO authenticated
   WITH CHECK (bucket_id = 'ember');
 
--- Allow authenticated users to update (upsert) their uploads
-CREATE POLICY IF NOT EXISTS "Authenticated users can update ember objects"
+DROP POLICY IF EXISTS "Authenticated users can update ember objects" ON storage.objects;
+CREATE POLICY "Authenticated users can update ember objects"
   ON storage.objects FOR UPDATE
   TO authenticated
   USING (bucket_id = 'ember');
 
--- Allow authenticated users to delete their uploads
-CREATE POLICY IF NOT EXISTS "Authenticated users can delete ember objects"
+DROP POLICY IF EXISTS "Authenticated users can delete ember objects" ON storage.objects;
+CREATE POLICY "Authenticated users can delete ember objects"
   ON storage.objects FOR DELETE
   TO authenticated
   USING (bucket_id = 'ember');
 
--- Allow public (anyone) to read/download from the ember bucket
-CREATE POLICY IF NOT EXISTS "Public can read ember objects"
+DROP POLICY IF EXISTS "Public can read ember objects" ON storage.objects;
+CREATE POLICY "Public can read ember objects"
   ON storage.objects FOR SELECT
   TO public
   USING (bucket_id = 'ember');
