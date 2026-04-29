@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { ImagePlus, Loader2, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { uploadImage } from '@/lib/upload'
+import { toast } from 'sonner'
 
 interface Props {
   value: string | null
@@ -30,15 +31,23 @@ export function ImageUpload({
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Show a local preview immediately so the user sees something right away
+    const localUrl = URL.createObjectURL(file)
+    onUpload(localUrl)
+
     setUploading(true)
     try {
       const supabase = createClient()
       const ext = file.name.split('.').pop()
       const fullPath = `${path}.${ext}`
       const url = await uploadImage(supabase, bucket, fullPath, file)
+      URL.revokeObjectURL(localUrl)
       onUpload(url)
     } catch (err) {
-      console.error('Upload failed:', err instanceof Error ? err.message : err)
+      URL.revokeObjectURL(localUrl)
+      onClear?.()
+      toast.error(err instanceof Error ? err.message : 'Upload failed')
     } finally {
       setUploading(false)
       if (inputRef.current) inputRef.current.value = ''
@@ -52,7 +61,15 @@ export function ImageUpload({
       {value ? (
         <>
           <img src={value} alt="Uploaded" className="w-full h-full object-cover" />
-          {onClear && (
+
+          {/* Upload spinner overlay */}
+          {uploading && (
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+              <Loader2 className="h-6 w-6 text-white animate-spin" />
+            </div>
+          )}
+
+          {!uploading && onClear && (
             <button
               type="button"
               onClick={onClear}
@@ -61,13 +78,15 @@ export function ImageUpload({
               <X className="h-3.5 w-3.5" />
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="absolute bottom-2 right-2 bg-black/50 text-white text-xs font-medium px-2 py-1 rounded-lg hover:bg-black/70 transition-colors"
-          >
-            Change
-          </button>
+          {!uploading && (
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className="absolute bottom-2 right-2 bg-black/50 text-white text-xs font-medium px-2 py-1 rounded-lg hover:bg-black/70 transition-colors"
+            >
+              Change
+            </button>
+          )}
         </>
       ) : (
         <button

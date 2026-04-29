@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import 'dotenv/config'
+import { createClient } from '@supabase/supabase-js'
 
 import ordersRouter from './routes/orders'
 import verifyRouter from './routes/verify'
@@ -30,8 +31,26 @@ app.use('/account', accountRouter)
 app.use('/inventory', inventoryRouter)
 app.use('/discounts', discountsRouter)
 
+async function ensureStorageBucket() {
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const { data: buckets } = await supabase.storage.listBuckets()
+    if (!buckets?.find(b => b.name === 'ember')) {
+      const { error } = await supabase.storage.createBucket('ember', { public: true })
+      if (error) console.error('Failed to create ember bucket:', error.message)
+      else console.log('Created ember storage bucket')
+    }
+  } catch (e) {
+    console.error('Storage bucket init error:', e)
+  }
+}
+
 app.listen(PORT, () => {
   console.log(`Ember API running on http://localhost:${PORT}`)
+  ensureStorageBucket()
 })
 
 export default app
