@@ -55,11 +55,11 @@ export function InventoryCreateForm({ businessId, onDone }: Props) {
         business_id: businessId,
         image_url: imageUrl,
       })
-      if (error) throw error
+      if (error) throw new Error(error.message)
       toast.success('Item added')
       onDone()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(e instanceof Error ? e.message : 'Failed to add item')
     } finally {
       setIsPending(false)
     }

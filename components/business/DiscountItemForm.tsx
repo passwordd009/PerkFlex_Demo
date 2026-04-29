@@ -41,11 +41,11 @@ export function DiscountItemForm({ discount, onDone }: Props) {
           discount_percentage: values.discount_percentage,
         })
         .eq('id', discount.id)
-      if (error) throw error
+      if (error) throw new Error(error.message)
       toast.success('Discount updated')
       onDone()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(e instanceof Error ? e.message : 'Failed to update discount')
     } finally {
       setIsPending(false)
     }

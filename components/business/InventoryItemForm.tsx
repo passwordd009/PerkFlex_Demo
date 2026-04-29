@@ -42,11 +42,11 @@ export function InventoryItemForm({ item, onDone }: Props) {
           price: values.price,
         })
         .eq('id', item.id)
-      if (error) throw error
+      if (error) throw new Error(error.message)
       toast.success('Item updated')
       onDone()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(e instanceof Error ? e.message : 'Failed to update item')
     } finally {
       setIsPending(false)
     }

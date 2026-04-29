@@ -72,12 +72,12 @@ export default function MenuManagementPage() {
           cover_url: bizCover,
         })
         .eq('id', business.id)
-      if (error) throw error
+      if (error) throw new Error(error.message)
       toast.success('Profile updated')
       queryClient.invalidateQueries({ queryKey: ['my-business'] })
       setEditingBiz(false)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : String(e))
+      toast.error(e instanceof Error ? e.message : 'Failed to save profile')
     } finally {
       setIsSaving(false)
     }
