@@ -4,7 +4,7 @@ import './globals.css'
 import { Providers } from './providers'
 
 export const metadata: Metadata = {
-  title: 'PerkFlex — Local Rewards',
+  title: 'Ember — Local Rewards',
   description: 'Preorder from local businesses and earn loyalty rewards',
 }
 

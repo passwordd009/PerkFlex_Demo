@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Eye, EyeOff } from 'lucide-react'
+import { EmberLogo } from '@/components/EmberLogo'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -39,10 +40,10 @@ export default function LoginPage() {
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary mb-4">
-            <span className="text-white text-2xl font-black">P</span>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-md mb-4">
+            <EmberLogo size={40} />
           </div>
-          <h1 className="text-2xl font-black text-foreground">PerkFlex</h1>
+          <h1 className="text-2xl font-black text-foreground">Ember</h1>
           <p className="text-gray-500 text-sm mt-1">Local rewards, reimagined</p>
         </div>
 
