@@ -37,8 +37,8 @@ export function ImageUpload({
       const fullPath = `${path}.${ext}`
       const url = await uploadImage(supabase, bucket, fullPath, file)
       onUpload(url)
-    } catch (err: any) {
-      console.error('Upload failed:', err.message)
+    } catch (err) {
+      console.error('Upload failed:', err instanceof Error ? err.message : err)
     } finally {
       setUploading(false)
       if (inputRef.current) inputRef.current.value = ''

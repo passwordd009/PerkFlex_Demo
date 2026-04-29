@@ -56,8 +56,8 @@ export function DiscountWizard() {
     try {
       await discountsApi.create(payload)
       setStep('done')
-    } catch (e: any) {
-      toast.error(e.message || 'Failed to create discount')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to create discount')
     } finally {
       setIsApplying(false)
     }

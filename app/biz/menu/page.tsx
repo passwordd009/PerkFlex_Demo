@@ -76,8 +76,8 @@ export default function MenuManagementPage() {
       toast.success('Profile updated')
       queryClient.invalidateQueries({ queryKey: ['my-business'] })
       setEditingBiz(false)
-    } catch (e: any) {
-      toast.error(e.message)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
     } finally {
       setIsSaving(false)
     }
