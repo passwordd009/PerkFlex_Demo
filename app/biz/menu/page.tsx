@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Pencil, Package, Tag, Camera, Star } from 'lucide-react'
+import { Pencil, Package, Tag, Camera, Star, Plus } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ImageUpload } from '@/components/ImageUpload'
 import { InventoryItemForm } from '@/components/business/InventoryItemForm'
+import { InventoryCreateForm } from '@/components/business/InventoryCreateForm'
 import { DiscountItemForm } from '@/components/business/DiscountItemForm'
 import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -21,6 +22,7 @@ export default function MenuManagementPage() {
   const queryClient = useQueryClient()
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
   const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null)
+  const [creatingItem, setCreatingItem] = useState(false)
 
   // Business profile edit
   const [editingBiz, setEditingBiz] = useState(false)
@@ -95,7 +97,7 @@ export default function MenuManagementPage() {
       const rows = (data ?? []) as InventoryItem[]
       const seen = new Set<string>()
       return rows.filter(item => {
-        const key = item.name.toLowerCase().trim()
+        const key = `${item.name.toLowerCase().trim()}:${Number(item.price)}`
         if (seen.has(key)) return false
         seen.add(key)
         return true
@@ -314,6 +316,34 @@ export default function MenuManagementPage() {
           )
         )}
       </div>
+
+      {/* ── Add item FAB ── */}
+      {activeTab !== 'Rewards' && businessId && (
+        <button
+          onClick={() => setCreatingItem(true)}
+          className="fixed bottom-24 right-4 z-50 bg-primary text-white rounded-full p-4 shadow-lg hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="h-5 w-5" />
+        </button>
+      )}
+
+      {/* ── Create item dialog ── */}
+      <Dialog open={creatingItem} onOpenChange={open => { if (!open) setCreatingItem(false) }}>
+        <DialogContent className="mx-4">
+          <DialogHeader>
+            <DialogTitle>Add Item</DialogTitle>
+          </DialogHeader>
+          {businessId && (
+            <InventoryCreateForm
+              businessId={businessId}
+              onDone={() => {
+                setCreatingItem(false)
+                queryClient.invalidateQueries({ queryKey: ['biz-inventory', businessId] })
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* ── Edit item dialog ── */}
       <Dialog open={!!editingItem} onOpenChange={open => { if (!open) setEditingItem(null) }}>

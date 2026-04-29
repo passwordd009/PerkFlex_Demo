@@ -1,6 +1,6 @@
 'use client'
 
-import { CheckCircle, AlertTriangle } from 'lucide-react'
+import { CheckCircle, AlertTriangle, SkipForward } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { InventoryUploadResponse } from '@/types'
 
@@ -10,7 +10,7 @@ interface UploadResultProps {
 }
 
 export function UploadResult({ result, onReset }: UploadResultProps) {
-  const { success_count, error_count, errors } = result
+  const { success_count, error_count, duplicate_count, errors } = result
 
   return (
     <div className="space-y-4">
@@ -19,6 +19,15 @@ export function UploadResult({ result, onReset }: UploadResultProps) {
           <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
           <p className="text-sm font-medium text-green-700">
             {success_count} item{success_count !== 1 ? 's' : ''} uploaded successfully
+          </p>
+        </div>
+      )}
+
+      {duplicate_count > 0 && (
+        <div className="flex items-center gap-2 rounded-xl bg-blue-50 px-4 py-3">
+          <SkipForward className="h-5 w-5 text-blue-500 shrink-0" />
+          <p className="text-sm font-medium text-blue-700">
+            {duplicate_count} item{duplicate_count !== 1 ? 's' : ''} skipped — already in inventory
           </p>
         </div>
       )}
@@ -41,7 +50,7 @@ export function UploadResult({ result, onReset }: UploadResultProps) {
         </div>
       )}
 
-      {success_count === 0 && error_count === 0 && (
+      {success_count === 0 && duplicate_count === 0 && error_count === 0 && (
         <p className="text-sm text-gray-500 text-center">No items were processed.</p>
       )}
 

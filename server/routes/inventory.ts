@@ -70,6 +70,15 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
 
     const businessId = business.id
 
+    // Fetch existing items once to enable duplicate detection
+    const { data: existingItems } = await supabase
+      .from('inventory')
+      .select('name, price')
+      .eq('business_id', businessId)
+    const existingKeys = new Set(
+      (existingItems ?? []).map(i => `${i.name.toLowerCase().trim()}:${Number(i.price)}`)
+    )
+
     const validItems: Array<{ name: string; price: number; quantity: number; category: string }> = []
     const errors: Array<{ row: number; message: string }> = []
 
@@ -83,14 +92,26 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
       }
     }
 
-    if (validItems.length === 0) {
-      res.status(422).json({ success_count: 0, error_count: errors.length, errors })
+    // Split valid items: skip exact (name+price) duplicates, upsert the rest
+    const toUpsert: typeof validItems = []
+    let duplicate_count = 0
+    for (const item of validItems) {
+      const key = `${item.name.toLowerCase().trim()}:${Number(item.price)}`
+      if (existingKeys.has(key)) {
+        duplicate_count++
+      } else {
+        toUpsert.push(item)
+      }
+    }
+
+    if (toUpsert.length === 0) {
+      res.json({ success_count: 0, error_count: errors.length, duplicate_count, errors })
       return
     }
 
     const CHUNK_SIZE = 100
-    for (let start = 0; start < validItems.length; start += CHUNK_SIZE) {
-      const chunk = validItems.slice(start, start + CHUNK_SIZE).map(item => ({
+    for (let start = 0; start < toUpsert.length; start += CHUNK_SIZE) {
+      const chunk = toUpsert.slice(start, start + CHUNK_SIZE).map(item => ({
         ...item,
         business_id: businessId,
       }))
@@ -103,7 +124,7 @@ router.post('/upload', async (req: AuthenticatedRequest, res) => {
       }
     }
 
-    res.json({ success_count: validItems.length, error_count: errors.length, errors })
+    res.json({ success_count: toUpsert.length, error_count: errors.length, duplicate_count, errors })
   } catch (e: any) {
     console.error('Inventory upload error:', e)
     res.status(500).json({ message: e.message || 'Internal server error' })
