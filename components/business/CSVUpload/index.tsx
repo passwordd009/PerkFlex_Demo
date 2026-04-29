@@ -66,18 +66,29 @@ export function CSVUpload({ onDone }: { onDone?: () => void } = {}) {
 
     const { valid, errors: frontendErrors } = transformRows(rows, confirmedMapping)
 
-    if (valid.length === 0) {
-      setResult({ success_count: 0, error_count: frontendErrors.length, errors: frontendErrors })
+    // Deduplicate within the CSV itself by name+price before sending
+    const seenKeys = new Set<string>()
+    const dedupedValid = valid.filter(item => {
+      const key = `${item.name.toLowerCase().trim()}:${item.price}`
+      if (seenKeys.has(key)) return false
+      seenKeys.add(key)
+      return true
+    })
+    const inFileDuplicates = valid.length - dedupedValid.length
+
+    if (dedupedValid.length === 0) {
+      setResult({ success_count: 0, error_count: frontendErrors.length, duplicate_count: inFileDuplicates, errors: frontendErrors })
       setStep('done')
       return
     }
 
     try {
-      const response = await inventoryApi.upload(valid)
-      // Merge any frontend-detected errors with backend errors
+      const response = await inventoryApi.upload(dedupedValid)
+      // Merge frontend errors/duplicates with backend response
       setResult({
         success_count: response.success_count,
         error_count: frontendErrors.length + response.error_count,
+        duplicate_count: (response.duplicate_count ?? 0) + inFileDuplicates,
         errors: [...frontendErrors, ...response.errors],
       })
       setStep('done')

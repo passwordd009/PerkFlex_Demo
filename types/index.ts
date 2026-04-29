@@ -153,6 +153,7 @@ export interface InventoryUploadItem {
 export interface InventoryUploadResponse {
   success_count: number
   error_count: number
+  duplicate_count: number
   errors: Array<{ row: number; message: string }>
 }
 

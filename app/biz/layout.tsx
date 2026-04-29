@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LayoutDashboard, ScanLine, ClipboardList, UtensilsCrossed, Package, Tag, Settings } from 'lucide-react'
+import { LayoutDashboard, ScanLine, ClipboardList, UtensilsCrossed, Package, Tag } from 'lucide-react'
 
 const nav = [
   { href: '/biz/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -8,7 +8,6 @@ const nav = [
   { href: '/biz/inventory', label: 'Inventory', icon: Package },
   { href: '/biz/discounts', label: 'Discounts', icon: Tag },
   { href: '/biz/scan', label: 'Scan QR', icon: ScanLine },
-  { href: '/biz/settings', label: 'Settings', icon: Settings },
 ]
 
 export default function BizLayout({ children }: { children: React.ReactNode }) {
