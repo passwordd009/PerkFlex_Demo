@@ -31,7 +31,7 @@ app.use('/inventory', inventoryRouter)
 app.use('/discounts', discountsRouter)
 
 app.listen(PORT, () => {
-  console.log(`PerkFlex API running on http://localhost:${PORT}`)
+  console.log(`Ember API running on http://localhost:${PORT}`)
 })
 
 export default app

@@ -75,7 +75,7 @@ export const useCartStore = create<CartStore>()(
       },
     }),
     {
-      name: 'perkflex-cart-v2',
+      name: 'ember-cart-v1',
       version: 1,
       migrate: () => ({ items: [], businessId: null, districtId: null, appliedRewardId: null }),
     }
