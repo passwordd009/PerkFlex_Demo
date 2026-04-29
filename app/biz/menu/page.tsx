@@ -1,31 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Pencil, Package, Tag, Camera } from 'lucide-react'
+import { Pencil, Package, Tag, Camera, Star } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { ImageUpload } from '@/components/ImageUpload'
 import { InventoryItemForm } from '@/components/business/InventoryItemForm'
+import { DiscountItemForm } from '@/components/business/DiscountItemForm'
 import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import type { InventoryItem, Discount } from '@/types'
-
-type BizProfile = {
-  id: string
-  name: string
-  description: string | null
-  logo_url: string | null
-  cover_url: string | null
-}
+import type { InventoryItem, Discount, Business } from '@/types'
 
 export default function MenuManagementPage() {
   const queryClient = useQueryClient()
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
+  const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null)
 
   // Business profile edit
   const [editingBiz, setEditingBiz] = useState(false)
@@ -35,7 +30,7 @@ export default function MenuManagementPage() {
   const [bizCover, setBizCover] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
-  const { data: business } = useQuery<BizProfile | null>({
+  const { data: business } = useQuery<Business | null>({
     queryKey: ['my-business'],
     queryFn: async () => {
       const supabase = createClient()
@@ -43,10 +38,10 @@ export default function MenuManagementPage() {
       if (!user) return null
       const { data } = await supabase
         .from('businesses')
-        .select('id, name, description, logo_url, cover_url')
+        .select('*')
         .eq('owner_id', user.id)
         .maybeSingle()
-      return data ?? null
+      return (data as Business) ?? null
     },
   })
 
@@ -86,7 +81,7 @@ export default function MenuManagementPage() {
     }
   }
 
-  const { data: inventoryItems = [], isLoading } = useQuery({
+  const { data: inventoryItems = [], isLoading } = useQuery<InventoryItem[]>({
     queryKey: ['biz-inventory', businessId],
     enabled: !!businessId,
     queryFn: async () => {
@@ -108,7 +103,7 @@ export default function MenuManagementPage() {
     },
   })
 
-  const { data: discounts = [] } = useQuery({
+  const { data: discounts = [] } = useQuery<Discount[]>({
     queryKey: ['biz-discounts', businessId],
     enabled: !!businessId,
     queryFn: async () => {
@@ -117,28 +112,29 @@ export default function MenuManagementPage() {
         .from('discounts')
         .select('*')
         .eq('business_id', businessId!)
+        .order('points_cost')
       return (data ?? []) as Discount[]
     },
   })
 
-  const discountMap = new Map<string, Discount>()
-  for (const discount of discounts) {
-    for (const itemId of discount.item_ids) {
-      if (!discountMap.has(itemId)) discountMap.set(itemId, discount)
-    }
-  }
+  const categories = useMemo(() =>
+    Array.from(new Set(inventoryItems.map(i => i.category ?? 'Other')))
+  , [inventoryItems])
 
-  const categories: [string, InventoryItem[]][] = []
-  const catSeen = new Map<string, InventoryItem[]>()
-  for (const item of inventoryItems) {
-    const cat = item.category || 'Other'
-    if (!catSeen.has(cat)) {
-      const group: InventoryItem[] = []
-      catSeen.set(cat, group)
-      categories.push([cat, group])
+  const allTabs = useMemo(() => ['Rewards', ...categories], [categories])
+  const [selectedTab, setSelectedTab] = useState<string>('')
+  const activeTab = selectedTab || categories[0] || 'Rewards'
+
+  const groupedByCategory = useMemo(() => {
+    const map = new Map<string, InventoryItem[]>()
+    for (const item of inventoryItems) {
+      const cat = item.category ?? 'Other'
+      map.set(cat, [...(map.get(cat) ?? []), item])
     }
-    catSeen.get(cat)!.push(item)
-  }
+    return map
+  }, [inventoryItems])
+
+  const currentItems = groupedByCategory.get(activeTab) ?? []
 
   return (
     <div className="pb-6">
@@ -192,6 +188,9 @@ export default function MenuManagementPage() {
                 <Pencil className="h-3.5 w-3.5" />
               </button>
             </div>
+            {business?.category && (
+              <Badge variant="default" className="text-[10px] mt-0.5">{business.category}</Badge>
+            )}
             {business?.description && (
               <p className="text-xs text-gray-400 mt-0.5 leading-snug">{business.description}</p>
             )}
@@ -199,86 +198,120 @@ export default function MenuManagementPage() {
         </div>
       </div>
 
-      {/* ── Inventory grid ── */}
+      {/* ── Tab bar ── */}
       <div className="px-4">
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-3">
-            {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-44 rounded-2xl" />)}
-          </div>
-        ) : inventoryItems.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <Package className="h-10 w-10 mx-auto mb-3 text-gray-200" />
-            <p className="text-sm font-medium text-gray-500">No items in your store yet</p>
-            <p className="text-xs mt-1 mb-5">Upload inventory to populate your menu</p>
-            <Link href="/biz/inventory" className="text-sm font-semibold text-primary underline underline-offset-2">
-              Go to Inventory →
-            </Link>
+          <div className="flex gap-2 mb-4">
+            {[1, 2, 3].map(i => <Skeleton key={i} className="h-8 w-20 rounded-full" />)}
           </div>
         ) : (
-          <div className="space-y-7">
-            {categories.map(([category, items]) => (
-              <div key={category}>
-                <h2 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">
-                  {category}
-                </h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {items.map(item => {
-                    const discount = discountMap.get(item.id)
-                    const originalPrice = Number(item.price)
-                    const discountedPrice = discount
-                      ? originalPrice * (1 - discount.discount_percentage / 100)
-                      : null
-
-                    return (
-                      <div
-                        key={item.id}
-                        className="relative bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
-                      >
-                        <button
-                          onClick={() => setEditingItem(item)}
-                          className="absolute top-2 right-2 z-10 bg-white/80 backdrop-blur-sm rounded-lg p-1 text-gray-400 hover:text-primary shadow-sm transition-colors"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-
-                        {item.image_url ? (
-                          <img src={item.image_url} alt={item.name} className="w-full h-28 object-cover" />
-                        ) : (
-                          <div className="w-full h-28 bg-gray-50 flex items-center justify-center">
-                            <Package className="h-8 w-8 text-gray-200" />
-                          </div>
-                        )}
-
-                        <div className="p-3">
-                          <p className="text-sm font-semibold text-foreground leading-tight">{item.name}</p>
-
-                          {discount && (
-                            <span className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-semibold text-red-500 bg-red-50 px-1.5 py-0.5 rounded-md">
-                              <Tag className="h-2.5 w-2.5" />
-                              {discount.discount_percentage}% off
-                            </span>
-                          )}
-
-                          <div className="mt-1.5">
-                            {discountedPrice !== null ? (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-xs text-gray-400 line-through">{formatCurrency(originalPrice)}</span>
-                                <span className="text-sm font-bold text-primary">{formatCurrency(discountedPrice)}</span>
-                              </div>
-                            ) : (
-                              <span className="text-sm font-bold text-foreground">{formatCurrency(originalPrice)}</span>
-                            )}
-                          </div>
-
-                          <p className="text-[10px] text-gray-400 mt-1">Qty: {item.quantity}</p>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+            {allTabs.map(tab => (
+              <button
+                key={tab}
+                onClick={() => setSelectedTab(tab)}
+                className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-colors ${
+                  activeTab === tab
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                {tab}
+              </button>
             ))}
           </div>
+        )}
+
+        {/* ── Rewards tab ── */}
+        {activeTab === 'Rewards' && (
+          discounts.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-12">
+              No discounts yet —{' '}
+              <Link href="/biz/discounts" className="text-primary font-semibold underline underline-offset-2">
+                create one
+              </Link>
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {discounts.map(discount => (
+                <div key={discount.id} className="relative bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <button
+                    onClick={() => setEditingDiscount(discount)}
+                    className="absolute top-2 right-2 z-10 bg-white/80 backdrop-blur-sm rounded-lg p-1 text-gray-400 hover:text-primary shadow-sm transition-colors"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+
+                  <div className="w-full h-28 bg-primary/5 flex flex-col items-center justify-center gap-1">
+                    <Tag className="h-8 w-8 text-primary/40" />
+                    <span className="text-2xl font-black text-primary">{discount.discount_percentage}%</span>
+                    <span className="text-[10px] text-gray-400 font-medium">off</span>
+                  </div>
+
+                  <div className="p-3">
+                    <div className="flex items-center gap-1 mb-0.5">
+                      <p className="text-sm font-semibold text-foreground leading-tight truncate">{discount.title}</p>
+                      {discount.is_combo && (
+                        <span className="flex-shrink-0 text-[9px] font-bold px-1 py-0.5 rounded bg-amber-100 text-amber-700">Combo</span>
+                      )}
+                    </div>
+                    {discount.description && (
+                      <p className="text-xs text-gray-400 leading-tight">{discount.description}</p>
+                    )}
+                    <div className="flex items-center gap-0.5 mt-1.5">
+                      <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                      <span className="text-sm font-bold text-amber-700">{discount.points_cost} pts</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* ── Inventory category tabs ── */}
+        {activeTab !== 'Rewards' && (
+          isLoading ? (
+            <div className="grid grid-cols-2 gap-3">
+              {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-44 rounded-2xl" />)}
+            </div>
+          ) : currentItems.length === 0 ? (
+            <div className="text-center py-20 text-gray-400">
+              <Package className="h-10 w-10 mx-auto mb-3 text-gray-200" />
+              <p className="text-sm font-medium text-gray-500">No items in your store yet</p>
+              <p className="text-xs mt-1 mb-5">Upload inventory to populate your menu</p>
+              <Link href="/biz/inventory" className="text-sm font-semibold text-primary underline underline-offset-2">
+                Go to Inventory →
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {currentItems.map(item => (
+                <div key={item.id} className="relative bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <button
+                    onClick={() => setEditingItem(item)}
+                    className="absolute top-2 right-2 z-10 bg-white/80 backdrop-blur-sm rounded-lg p-1 text-gray-400 hover:text-primary shadow-sm transition-colors"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.name} className="w-full h-28 object-cover" />
+                  ) : (
+                    <div className="w-full h-28 bg-gray-50 flex items-center justify-center">
+                      <Package className="h-8 w-8 text-gray-200" />
+                    </div>
+                  )}
+
+                  <div className="p-3">
+                    <p className="text-sm font-semibold text-foreground leading-tight">{item.name}</p>
+                    <p className="text-sm font-bold text-foreground mt-1.5">{formatCurrency(Number(item.price))}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Qty: {item.quantity}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
         )}
       </div>
 
@@ -294,6 +327,24 @@ export default function MenuManagementPage() {
               onDone={() => {
                 setEditingItem(null)
                 queryClient.invalidateQueries({ queryKey: ['biz-inventory', businessId] })
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit discount dialog ── */}
+      <Dialog open={!!editingDiscount} onOpenChange={open => { if (!open) setEditingDiscount(null) }}>
+        <DialogContent className="mx-4">
+          <DialogHeader>
+            <DialogTitle>Edit Discount</DialogTitle>
+          </DialogHeader>
+          {editingDiscount && (
+            <DiscountItemForm
+              discount={editingDiscount}
+              onDone={() => {
+                setEditingDiscount(null)
+                queryClient.invalidateQueries({ queryKey: ['biz-discounts', businessId] })
               }}
             />
           )}
