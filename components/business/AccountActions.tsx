@@ -4,12 +4,24 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { accountApi } from '@/lib/api'
-import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { LogOut, Trash2 } from 'lucide-react'
+import { MoreVertical, LogOut, Trash2 } from 'lucide-react'
 
-export function AccountActions() {
+interface Props {
+  businessName: string
+  logoUrl: string | null
+}
+
+export function AccountActions({ businessName, logoUrl }: Props) {
   const router = useRouter()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -37,17 +49,42 @@ export function AccountActions() {
 
   return (
     <>
-      <div className="space-y-2 mt-6">
-        <Button variant="outline" className="w-full" onClick={signOut}>
-          <LogOut className="h-4 w-4 mr-2" /> Sign Out
-        </Button>
-        <Button
-          variant="ghost"
-          className="w-full text-red-500 hover:text-red-600 hover:bg-red-50"
-          onClick={() => setConfirmDelete(true)}
-        >
-          <Trash2 className="h-4 w-4 mr-2" /> Delete Account
-        </Button>
+      <div className="flex items-center justify-between pt-12 pb-2 px-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl overflow-hidden bg-primary/10 shrink-0">
+            {logoUrl ? (
+              <img src={logoUrl} alt={businessName} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <span className="text-base font-black text-primary">{businessName[0]}</span>
+              </div>
+            )}
+          </div>
+          <div>
+            <p className="text-xs text-gray-400 uppercase tracking-wide leading-none mb-0.5">Business</p>
+            <p className="text-lg font-black text-foreground leading-tight">{businessName}</p>
+          </div>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="p-2 rounded-xl hover:bg-gray-100 transition-colors text-gray-500">
+              <MoreVertical className="h-5 w-5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={signOut}>
+              <LogOut className="h-4 w-4" /> Sign Out
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="text-red-500 focus:text-red-600 focus:bg-red-50"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash2 className="h-4 w-4" /> Delete Account
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <Dialog open={confirmDelete} onOpenChange={open => { if (!open) setConfirmDelete(false) }}>
