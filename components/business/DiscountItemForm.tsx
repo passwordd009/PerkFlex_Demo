@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ImageUpload } from '@/components/ImageUpload'
 import { toast } from 'sonner'
 import type { Discount } from '@/types'
 
@@ -15,16 +16,16 @@ interface Props {
 
 interface FormValues {
   title: string
-  image_url: string
   discount_percentage: number
 }
 
 export function DiscountItemForm({ discount, onDone }: Props) {
   const [isPending, setIsPending] = useState(false)
+  const [imageUrl, setImageUrl] = useState<string | null>(discount.image_url ?? null)
+
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     defaultValues: {
       title: discount.title,
-      image_url: discount.image_url ?? '',
       discount_percentage: discount.discount_percentage,
     },
   })
@@ -37,7 +38,7 @@ export function DiscountItemForm({ discount, onDone }: Props) {
         .from('discounts')
         .update({
           title: values.title.trim(),
-          image_url: values.image_url.trim() || null,
+          image_url: imageUrl,
           discount_percentage: values.discount_percentage,
         })
         .eq('id', discount.id)
@@ -54,17 +55,24 @@ export function DiscountItemForm({ discount, onDone }: Props) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
       <div>
+        <label className="text-sm font-medium text-foreground mb-1 block">Photo</label>
+        <ImageUpload
+          value={imageUrl}
+          bucket="ember"
+          path={`discounts/${discount.id}`}
+          onUpload={setImageUrl}
+          onClear={() => setImageUrl(null)}
+          placeholder="Upload discount image"
+        />
+      </div>
+
+      <div>
         <label className="text-sm font-medium text-foreground mb-1 block">Name *</label>
         <Input
           {...register('title', { required: 'Name is required' })}
           placeholder="e.g. Customer Loyalty Discount"
         />
         {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>}
-      </div>
-
-      <div>
-        <label className="text-sm font-medium text-foreground mb-1 block">Photo URL</label>
-        <Input {...register('image_url')} type="url" placeholder="https://…" />
       </div>
 
       <div>

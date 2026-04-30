@@ -5,6 +5,7 @@ import { ScanLine, ClipboardList, TrendingUp } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils'
+import { AccountActions } from '@/components/business/AccountActions'
 
 export default async function BusinessDashboardPage() {
   const supabase = await createClient()
@@ -86,6 +87,8 @@ export default async function BusinessDashboardPage() {
           </Button>
         </Link>
       </div>
+
+      <AccountActions />
 
     </div>
   )
