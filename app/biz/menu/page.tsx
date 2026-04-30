@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Pencil, Package, Tag, Camera, Star, Plus } from 'lucide-react'
+import { Pencil, Package, Tag, Camera, Star, Plus, Trash2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -23,6 +23,8 @@ export default function MenuManagementPage() {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null)
   const [editingDiscount, setEditingDiscount] = useState<Discount | null>(null)
   const [creatingItem, setCreatingItem] = useState(false)
+  const [confirmDeleteItem, setConfirmDeleteItem] = useState<InventoryItem | null>(null)
+  const [confirmDeleteDiscount, setConfirmDeleteDiscount] = useState<Discount | null>(null)
 
   // Business profile edit
   const [editingBiz, setEditingBiz] = useState(false)
@@ -81,6 +83,26 @@ export default function MenuManagementPage() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  async function deleteItem() {
+    if (!confirmDeleteItem) return
+    const supabase = createClient()
+    const { error } = await supabase.from('inventory').delete().eq('id', confirmDeleteItem.id)
+    if (error) { toast.error(error.message); return }
+    toast.success('Item deleted')
+    setConfirmDeleteItem(null)
+    queryClient.invalidateQueries({ queryKey: ['biz-inventory', businessId] })
+  }
+
+  async function deleteDiscount() {
+    if (!confirmDeleteDiscount) return
+    const supabase = createClient()
+    const { error } = await supabase.from('discounts').delete().eq('id', confirmDeleteDiscount.id)
+    if (error) { toast.error(error.message); return }
+    toast.success('Discount deleted')
+    setConfirmDeleteDiscount(null)
+    queryClient.invalidateQueries({ queryKey: ['biz-discounts', businessId] })
   }
 
   const { data: inventoryItems = [], isLoading } = useQuery<InventoryItem[]>({
@@ -352,13 +374,21 @@ export default function MenuManagementPage() {
             <DialogTitle>Edit Item</DialogTitle>
           </DialogHeader>
           {editingItem && (
-            <InventoryItemForm
-              item={editingItem}
-              onDone={() => {
-                setEditingItem(null)
-                queryClient.invalidateQueries({ queryKey: ['biz-inventory', businessId] })
-              }}
-            />
+            <>
+              <InventoryItemForm
+                item={editingItem}
+                onDone={() => {
+                  setEditingItem(null)
+                  queryClient.invalidateQueries({ queryKey: ['biz-inventory', businessId] })
+                }}
+              />
+              <button
+                onClick={() => { setConfirmDeleteItem(editingItem); setEditingItem(null) }}
+                className="w-full flex items-center justify-center gap-1 text-xs text-red-500 hover:text-red-600 py-1 transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete item
+              </button>
+            </>
           )}
         </DialogContent>
       </Dialog>
@@ -370,14 +400,50 @@ export default function MenuManagementPage() {
             <DialogTitle>Edit Discount</DialogTitle>
           </DialogHeader>
           {editingDiscount && (
-            <DiscountItemForm
-              discount={editingDiscount}
-              onDone={() => {
-                setEditingDiscount(null)
-                queryClient.invalidateQueries({ queryKey: ['biz-discounts', businessId] })
-              }}
-            />
+            <>
+              <DiscountItemForm
+                discount={editingDiscount}
+                onDone={() => {
+                  setEditingDiscount(null)
+                  queryClient.invalidateQueries({ queryKey: ['biz-discounts', businessId] })
+                }}
+              />
+              <button
+                onClick={() => { setConfirmDeleteDiscount(editingDiscount); setEditingDiscount(null) }}
+                className="w-full flex items-center justify-center gap-1 text-xs text-red-500 hover:text-red-600 py-1 transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete discount
+              </button>
+            </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Confirm delete item dialog ── */}
+      <Dialog open={!!confirmDeleteItem} onOpenChange={open => { if (!open) setConfirmDeleteItem(null) }}>
+        <DialogContent className="mx-4">
+          <DialogHeader><DialogTitle>Delete Item</DialogTitle></DialogHeader>
+          <p className="text-sm text-gray-500">
+            Delete <strong>{confirmDeleteItem?.name}</strong>? This cannot be undone.
+          </p>
+          <div className="flex gap-2 pt-2">
+            <Button variant="ghost" className="flex-1" onClick={() => setConfirmDeleteItem(null)}>Cancel</Button>
+            <Button variant="destructive" className="flex-1" onClick={deleteItem}>Delete</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Confirm delete discount dialog ── */}
+      <Dialog open={!!confirmDeleteDiscount} onOpenChange={open => { if (!open) setConfirmDeleteDiscount(null) }}>
+        <DialogContent className="mx-4">
+          <DialogHeader><DialogTitle>Delete Discount</DialogTitle></DialogHeader>
+          <p className="text-sm text-gray-500">
+            Delete <strong>{confirmDeleteDiscount?.title}</strong>? This cannot be undone.
+          </p>
+          <div className="flex gap-2 pt-2">
+            <Button variant="ghost" className="flex-1" onClick={() => setConfirmDeleteDiscount(null)}>Cancel</Button>
+            <Button variant="destructive" className="flex-1" onClick={deleteDiscount}>Delete</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
