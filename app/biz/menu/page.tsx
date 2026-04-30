@@ -86,9 +86,13 @@ export default function MenuManagementPage() {
   }
 
   async function deleteItem() {
-    if (!confirmDeleteItem) return
+    if (!confirmDeleteItem || !businessId) return
     const supabase = createClient()
-    const { error } = await supabase.from('inventory').delete().eq('id', confirmDeleteItem.id)
+    const { error } = await supabase
+      .from('inventory')
+      .delete()
+      .eq('business_id', businessId)
+      .ilike('name', confirmDeleteItem.name)
     if (error) { toast.error(error.message); return }
     toast.success('Item deleted')
     setConfirmDeleteItem(null)
