@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
+import { ImageUpload } from '@/components/ImageUpload'
 
 export interface DetailsData {
   title: string
@@ -18,7 +19,7 @@ interface Props {
 export function DiscountDetails({ initial, onNext, onBack }: Props) {
   const [title, setTitle]             = useState(initial.title)
   const [description, setDescription] = useState(initial.description)
-  const [imageUrl, setImageUrl]       = useState(initial.image_url)
+  const [imageUrl, setImageUrl]       = useState<string | null>(initial.image_url || null)
 
   const inputClass =
     'w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm text-foreground placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary'
@@ -49,15 +50,16 @@ export function DiscountDetails({ initial, onNext, onBack }: Props) {
 
         <div>
           <label className="block text-sm font-semibold text-foreground mb-1.5">
-            Image URL{' '}
+            Photo{' '}
             <span className="text-gray-400 font-normal">(optional)</span>
           </label>
-          <input
-            type="url"
+          <ImageUpload
             value={imageUrl}
-            onChange={e => setImageUrl(e.target.value)}
-            placeholder="https://…"
-            className={inputClass}
+            bucket="ember"
+            path={`discounts/draft-${Date.now()}`}
+            onUpload={url => setImageUrl(url)}
+            onClear={() => setImageUrl(null)}
+            placeholder="Upload discount image"
           />
         </div>
 
@@ -77,7 +79,7 @@ export function DiscountDetails({ initial, onNext, onBack }: Props) {
       </div>
 
       <button
-        onClick={() => onNext({ title: title.trim(), description: description.trim(), image_url: imageUrl.trim() })}
+        onClick={() => onNext({ title: title.trim(), description: description.trim(), image_url: imageUrl ?? '' })}
         disabled={title.trim().length === 0}
         className="w-full bg-primary text-white font-semibold py-3 rounded-xl disabled:opacity-40 transition-opacity"
       >
