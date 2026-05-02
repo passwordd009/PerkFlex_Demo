@@ -4,7 +4,6 @@ import { useCallback, useRef, useState, useEffect } from 'react'
 import Map, { Marker, NavigationControl } from 'react-map-gl/mapbox'
 import type { MapRef } from 'react-map-gl/mapbox'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Coffee, Utensils, ShoppingBag, Scissors, Dumbbell, Landmark } from 'lucide-react'
 import 'mapbox-gl/dist/mapbox-gl.css'
 import type { Business } from '@/types'
 import { BusinessMapCard } from '@/components/customer/BusinessMapCard'
@@ -23,17 +22,6 @@ interface MapViewProps {
 }
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
-
-function getCategoryIcon(category: string | null) {
-  const c = category?.toLowerCase() ?? ''
-  if (c.includes('cafe') || c.includes('coffee') || c.includes('bakery')) return Coffee
-  if (c.includes('dining') || c.includes('restaurant') || c.includes('food') || c.includes('bar')) return Utensils
-  if (c.includes('salon') || c.includes('barber') || c.includes('beauty') || c.includes('spa')) return Scissors
-  if (c.includes('gym') || c.includes('fitness') || c.includes('sport')) return Dumbbell
-  if (c.includes('shop') || c.includes('retail') || c.includes('store') || c.includes('boutique')) return ShoppingBag
-  if (c.includes('service') || c.includes('bank') || c.includes('finance')) return Landmark
-  return ShoppingBag
-}
 
 export function MapView({ businesses, discountByBiz = {}, initialLat = 41.8781, initialLng = -87.6298 }: MapViewProps) {
   const mapRef = useRef<MapRef>(null)
@@ -162,7 +150,6 @@ export function MapView({ businesses, discountByBiz = {}, initialLat = 41.8781, 
 }
 
 function BusinessMarker({ business, selected }: { business: Business; selected: boolean }) {
-  const Icon = getCategoryIcon(business.category)
   return (
     <motion.div
       whileHover={{ scale: 1.1 }}
@@ -171,18 +158,24 @@ function BusinessMarker({ business, selected }: { business: Business; selected: 
       className="flex flex-col items-center cursor-pointer"
     >
       <div className={`
-        flex items-center gap-1.5 rounded-full px-3 py-2 shadow-lg border-2 border-white transition-colors
-        ${selected ? 'bg-primary scale-110' : 'bg-primary'}
+        w-10 h-10 rounded-full border-2 shadow-lg overflow-hidden bg-white transition-all
+        ${selected ? 'border-primary ring-2 ring-primary/30' : 'border-white'}
       `}>
-        <Icon className="h-4 w-4 text-white" />
-        {selected && (
-          <span className="text-white text-xs font-bold max-w-[80px] truncate">
-            {business.name}
-          </span>
+        {business.logo_url ? (
+          <img src={business.logo_url} alt={business.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-primary/10 flex items-center justify-center">
+            <span className="text-primary font-black text-sm">{business.name[0]}</span>
+          </div>
         )}
       </div>
+      {selected && (
+        <span className="mt-1 bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow max-w-[90px] truncate">
+          {business.name}
+        </span>
+      )}
       {/* Pin tail */}
-      <div className="w-2 h-2 bg-primary rotate-45 -mt-1 shadow-sm" />
+      <div className={`w-2 h-2 rotate-45 -mt-1 ${selected ? 'bg-primary' : 'bg-white border border-gray-200'} shadow-sm`} />
     </motion.div>
   )
 }

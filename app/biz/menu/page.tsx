@@ -30,6 +30,7 @@ export default function MenuManagementPage() {
   const [editingBiz, setEditingBiz] = useState(false)
   const [bizName, setBizName] = useState('')
   const [bizDescription, setBizDescription] = useState('')
+  const [bizAddress, setBizAddress] = useState('')
   const [bizLogo, setBizLogo] = useState<string | null>(null)
   const [bizCover, setBizCover] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -55,6 +56,7 @@ export default function MenuManagementPage() {
     if (!business) return
     setBizName(business.name)
     setBizDescription(business.description ?? '')
+    setBizAddress(business.address ?? '')
     setBizLogo(business.logo_url)
     setBizCover(business.cover_url)
     setEditingBiz(true)
@@ -64,12 +66,30 @@ export default function MenuManagementPage() {
     if (!business) return
     setIsSaving(true)
     try {
+      const address = bizAddress.trim() || null
+
+      // Geocode the address to keep the map pin in sync
+      let lat: number | null = business.lat
+      let lng: number | null = business.lng
+      if (address && address !== business.address) {
+        const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+        const res = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(address)}.json?access_token=${token}&limit=1`
+        )
+        const geo = await res.json()
+        const coords = geo.features?.[0]?.center
+        if (coords) { lng = coords[0]; lat = coords[1] }
+      }
+
       const supabase = createClient()
       const { error } = await supabase
         .from('businesses')
         .update({
           name: bizName.trim(),
           description: bizDescription.trim() || null,
+          address,
+          lat,
+          lng,
           logo_url: bizLogo,
           cover_url: bizCover,
         })
@@ -501,6 +521,17 @@ export default function MenuManagementPage() {
                   value={bizDescription}
                   onChange={e => setBizDescription(e.target.value)}
                   placeholder="Short description"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-foreground mb-1 block">
+                  Address <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <Input
+                  value={bizAddress}
+                  onChange={e => setBizAddress(e.target.value)}
+                  placeholder="123 Main St, Chicago, IL"
                 />
               </div>
 
