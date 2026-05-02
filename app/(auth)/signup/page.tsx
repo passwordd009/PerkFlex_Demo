@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { User, Store, Eye, EyeOff } from 'lucide-react'
+import { EmberLogo } from '@/components/EmberLogo'
 
 type Role = 'customer' | 'business_owner'
 
@@ -65,7 +66,7 @@ export default function SignupPage() {
       >
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary mb-4">
-            <span className="text-white text-2xl font-black">P</span>
+            <EmberLogo size={500} />
           </div>
           <h1 className="text-2xl font-black text-foreground">Create Account</h1>
           <p className="text-gray-500 text-sm mt-1">Join your local community</p>

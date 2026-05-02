@@ -40,11 +40,11 @@ export default function LoginPage() {
       >
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white shadow-md mb-4">
-            <EmberLogo size={40} />
+          <div className="inline-flex items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary mb-4 w-16 h-16">
+            <EmberLogo size={500} />
           </div>
-          <h1 className="text-2xl font-black text-foreground">Ember</h1>
-          <p className="text-gray-500 text-sm mt-1">Local rewards, reimagined</p>
+          <h1 className="text-2xl font-bold text-amber-700 tracking-tighter">EMBER</h1>
+          <p className="text-gray-500 text-sm mt-1">Sparking Local Loyalty</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">

@@ -118,7 +118,7 @@ export function MapView({ businesses, initialLat = 41.8781, initialLng = -87.629
             })
           }, 15000)
         }}
-        mapStyle="mapbox://styles/mapbox/streets-v12"
+        mapStyle="mapbox://styles/projecthestia/cmolpoqz6001201s684dlcac2"
         mapboxAccessToken={MAPBOX_TOKEN}
         style={{ width: '100%', height: '100%' }}
       >
