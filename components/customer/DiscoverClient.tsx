@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Search, SlidersHorizontal, Bell, Coffee, Utensils, ShoppingBag, Scissors, Dumbbell, Landmark, LayoutGrid } from 'lucide-react'
+import { Search, X, Bell, Coffee, Utensils, Wheat, GlassWater, Cookie, LayoutGrid } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { MapView } from '@/components/shared/MapView'
+import { BusinessCard } from '@/components/customer/BusinessCard'
 import { PointsBadge } from '@/components/shared/PointsBadge'
 import type { Business } from '@/types'
 
@@ -18,21 +20,24 @@ interface Props {
 }
 
 const CATEGORY_FILTERS = [
-  { label: 'All',      icon: LayoutGrid, match: (_: string | null) => true },
-  { label: 'Coffee',   icon: Coffee,     match: (c: string | null) => /cafe|coffee|bakery/i.test(c ?? '') },
-  { label: 'Food',     icon: Utensils,   match: (c: string | null) => /dining|restaurant|food|bar/i.test(c ?? '') },
-  { label: 'Beauty',   icon: Scissors,   match: (c: string | null) => /salon|barber|beauty|spa/i.test(c ?? '') },
-  { label: 'Fitness',  icon: Dumbbell,   match: (c: string | null) => /gym|fitness|sport/i.test(c ?? '') },
-  { label: 'Shopping', icon: ShoppingBag,match: (c: string | null) => /shop|retail|store|boutique/i.test(c ?? '') },
-  { label: 'Services', icon: Landmark,   match: (c: string | null) => /service|bank|finance/i.test(c ?? '') },
+  { label: 'All',    icon: LayoutGrid  },
+  { label: 'Coffee', icon: Coffee      },
+  { label: 'Food',   icon: Utensils    },
+  { label: 'Bakery', icon: Wheat       },
+  { label: 'Drinks', icon: GlassWater  },
+  { label: 'Snacks', icon: Cookie      },
 ]
+
+function matchesCategory(biz: Business, activeCategory: string) {
+  if (activeCategory === 'All') return true
+  return biz.category?.toLowerCase() === activeCategory.toLowerCase()
+}
 
 export function DiscoverClient({ businesses, discountByBiz }: Props) {
   const [query, setQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
 
   const filtered = useMemo(() => {
-    const filter = CATEGORY_FILTERS.find(f => f.label === activeCategory) ?? CATEGORY_FILTERS[0]
     return businesses.filter(biz => {
       const q = query.toLowerCase()
       const matchesSearch =
@@ -40,10 +45,11 @@ export function DiscoverClient({ businesses, discountByBiz }: Props) {
         biz.name.toLowerCase().includes(q) ||
         biz.category?.toLowerCase().includes(q) ||
         biz.description?.toLowerCase().includes(q)
-      const matchesCategory = activeCategory === 'All' || filter.match(biz.category ?? null)
-      return matchesSearch && matchesCategory
+      return matchesSearch && matchesCategory(biz, activeCategory)
     })
   }, [businesses, query, activeCategory])
+
+  const showResults = query.length > 0
 
   return (
     <div className="relative h-screen overflow-hidden">
@@ -55,7 +61,7 @@ export function DiscoverClient({ businesses, discountByBiz }: Props) {
         {/* App bar */}
         <div className="flex items-center justify-end px-4 pt-12 pb-2 pointer-events-auto">
           <div className="flex items-center gap-2">
-            <PointsBadge />
+            <PointsBadge className="!bg-white shadow-sm" />
             <button className="w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-sm">
               <Bell className="h-4 w-4 text-gray-500" />
             </button>
@@ -72,30 +78,60 @@ export function DiscoverClient({ businesses, discountByBiz }: Props) {
               placeholder="Search rewards & shops"
               className="flex-1 text-sm bg-transparent outline-none text-foreground placeholder:text-gray-400"
             />
-            <SlidersHorizontal className="h-4 w-4 text-primary shrink-0" />
+            {query ? (
+              <button onClick={() => setQuery('')}>
+                <X className="h-4 w-4 text-gray-400" />
+              </button>
+            ) : null}
           </div>
         </div>
 
-        {/* Category chips */}
-        <div className="px-4 pointer-events-auto">
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {CATEGORY_FILTERS.map(({ label, icon: Icon }) => (
-              <button
-                key={label}
-                onClick={() => setActiveCategory(label)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors shadow-sm ${
-                  activeCategory === label
-                    ? 'bg-primary text-white'
-                    : 'bg-white text-gray-600'
-                }`}
-              >
-                <Icon className="h-3 w-3" />
-                {label}
-              </button>
-            ))}
+        {/* Category chips — hidden while searching */}
+        {!showResults && (
+          <div className="px-4 pointer-events-auto">
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {CATEGORY_FILTERS.map(({ label, icon: Icon }) => (
+                <button
+                  key={label}
+                  onClick={() => setActiveCategory(label)}
+                  className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors shadow-sm ${
+                    activeCategory === label
+                      ? 'bg-primary text-white'
+                      : 'bg-white text-gray-600'
+                  }`}
+                >
+                  <Icon className="h-3 w-3" />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
+
+      {/* Search results panel */}
+      <AnimatePresence>
+        {showResults && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 right-0 z-10 px-4 overflow-y-auto pointer-events-auto"
+            style={{ top: 160, maxHeight: 'calc(100vh - 180px)' }}
+          >
+            {filtered.length === 0 ? (
+              <p className="text-center text-gray-400 text-sm mt-8">No businesses found</p>
+            ) : (
+              <div className="space-y-3 pb-6">
+                {filtered.map(biz => (
+                  <BusinessCard key={biz.id} business={biz} compact />
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
